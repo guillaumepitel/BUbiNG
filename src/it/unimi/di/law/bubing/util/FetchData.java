@@ -3,19 +3,17 @@ package it.unimi.di.law.bubing.util;
 /*
  * Copyright (C) 2012-2013 Paolo Boldi, Massimo Santini, and Sebastiano Vigna
  *
- *  This program is free software; you can redistribute it and/or modify it
- *  under the terms of the GNU General Public License as published by the Free
- *  Software Foundation; either version 3 of the License, or (at your option)
- *  any later version.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *  This program is distributed in the hope that it will be useful, but
- *  WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- *  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
- *  for more details.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, see <http://www.gnu.org/licenses/>.
- *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 import it.unimi.di.law.bubing.RuntimeConfiguration;
@@ -294,6 +292,7 @@ public class FetchData implements URIResponse, Closeable {
 
 		httpGet.setURI(url);
 		if (requestConfig != null) httpGet.setConfig(requestConfig);
+
 		wrappedEntity.clear(); // Reset backing file.
  		startTime = System.currentTimeMillis();
 
@@ -317,8 +316,12 @@ public class FetchData implements URIResponse, Closeable {
  		}
  		else {
  			try {
- 				final HttpHost httpHost = visitState != null ? new HttpHost(InetAddress.getByAddress(visitState.workbenchEntry.ipAddress).getHostAddress()) :
- 					new HttpHost(httpGet.getURI().getHost(), httpGet.getURI().getPort());
+				final URI uri = httpGet.getURI();
+				final String scheme = uri.getScheme();
+				final int port = uri.getPort() == -1 ? (scheme.equals("https") ? 443 : 80) : uri.getPort();
+ 				final HttpHost httpHost = visitState != null ? 
+					new HttpHost(InetAddress.getByAddress(visitState.workbenchEntry.ipAddress).getHostAddress(), port, scheme) :
+ 					new HttpHost(uri.getHost(), port, scheme);
  				httpClient.execute(httpHost, httpGet, new ResponseHandler<Void>() {
 
  					@Override
