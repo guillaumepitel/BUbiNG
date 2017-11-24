@@ -16,6 +16,7 @@ package it.unimi.di.law.bubing.parser;
  * limitations under the License.
  */
 
+import com.google.common.collect.EvictingQueue;
 import it.unimi.di.law.bubing.Agent;
 import it.unimi.di.law.bubing.util.BURL;
 import it.unimi.di.law.bubing.util.ByteArrayCharSequence;
@@ -83,6 +84,7 @@ import com.martiansoftware.jsap.Parameter;
 import com.martiansoftware.jsap.SimpleJSAP;
 import com.martiansoftware.jsap.Switch;
 import com.martiansoftware.jsap.UnflaggedOption;
+import sun.misc.Regexp;
 
 // RELEASE-STATUS: DIST
 
@@ -483,6 +485,12 @@ public class HTMLParser<T> implements Parser<T> {
 
 		@SuppressWarnings("resource")
 		final StreamedSource streamedSource = new StreamedSource(new InputStreamReader(contentStream, charset));
+		StringBuilder linkContent = new StringBuilder();
+		StringBuilder afterLinkContent = new StringBuilder();
+		EvictingQueue<Character> stringBeforeLinkQueue = EvictingQueue.create(50);
+		boolean isAfterLink = false;
+		boolean insideAnchorElem = false;
+
 		if (buffer != null) streamedSource.setBuffer(buffer);
 		if (digestAppendable != null) digestAppendable.init(crossAuthorityDuplicates? null : uri);
 		URI base = uri;
@@ -503,6 +511,11 @@ public class HTMLParser<T> implements Parser<T> {
 					// TODO: detect flow breakers
 					if (linkReceiver == null) continue; // No link receiver, nothing to do.
 
+					if (name == HTMLElementName.A) {
+						isAfterLink = false;
+						insideAnchorElem = true;
+						linkContent.setLength(0);
+					}
 					// IFRAME or FRAME + SRC
 					if (name == HTMLElementName.IFRAME || name == HTMLElementName.FRAME || name == HTMLElementName.EMBED) process(linkReceiver, base, startTag.getAttributeValue("src"));
 					else if (name == HTMLElementName.IMG || name == HTMLElementName.SCRIPT) process(linkReceiver, base, startTag.getAttributeValue("src"));
@@ -559,7 +572,18 @@ public class HTMLParser<T> implements Parser<T> {
 					if (name == HTMLElementName.STYLE || name == HTMLElementName.SCRIPT) {
 						inSpecialText = Math.max(0, inSpecialText - 1); // Ignore extra closing tags
 					}
-
+					if (name == HTMLElementName.A)
+					{
+						if (insideAnchorElem) {
+							System.out.print("Before Link \n\"");
+							for (Character c : stringBeforeLinkQueue) {
+								System.out.print(c.toString());
+							}
+							System.out.println("\"\nContent :" + linkContent);
+						}
+						insideAnchorElem = false;
+						isAfterLink = true;
+					}
 					if (digestAppendable != null) {
 						if (endTag.getTagType() != EndTagType.NORMAL) continue;
 						digestAppendable.endTag(endTag);
@@ -574,6 +598,31 @@ public class HTMLParser<T> implements Parser<T> {
 						if (digestAppendable != null) {
 							if (segment instanceof CharacterReference) ((CharacterReference)segment).appendCharTo(digestAppendable);
 							else digestAppendable.append(segment);
+						}
+						if (segment instanceof CharacterReference)
+							if (insideAnchorElem)
+								((CharacterReference) segment).appendCharTo(linkContent);
+							else
+								stringBeforeLinkQueue.add( ((CharacterReference) segment).getChar());
+						else {
+							String s = segment.toString().replaceAll("\n", " ").replaceAll("[\\s\\p{Z}][\\s\\p{Z}]+"," ");
+							if (insideAnchorElem)
+								linkContent.append(s);
+							else
+								for (char c : s.toCharArray())
+									stringBeforeLinkQueue.add(c);
+						}
+						if (isAfterLink)
+						{
+							if (afterLinkContent.length() < 50)
+								afterLinkContent.append(segment.toString().replaceAll("\n", " ").replaceAll("[\\s\\p{Z}][\\s\\p{Z}]+"," "));
+							if (afterLinkContent.length() >= 50) {
+								System.out.print("After Link \n\"");
+								System.out.print(afterLinkContent.substring(0,50));
+								System.out.println("\"\n");
+								isAfterLink = false;
+								afterLinkContent.setLength(0);
+							}
 						}
 					}
 			}

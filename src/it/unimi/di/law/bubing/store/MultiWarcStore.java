@@ -35,6 +35,7 @@ import java.util.zip.GZIPOutputStream;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.http.HttpResponse;
 import org.apache.http.message.HeaderGroup;
+import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,9 +47,9 @@ import org.slf4j.LoggerFactory;
 public class MultiWarcStore implements Closeable, Store {
 	private final static Logger LOGGER = LoggerFactory.getLogger( WarcStore.class );
 
-	private final int OUTPUT_STREAM_BUFFER_SIZE = 1024 * 1024;
-	private final static String STORE_NAME_FORMAT = "store.warc.%s.%s.gz";
-	private final static String URL_NAME_FORMAT = "urls.%s.%s.gz";
+	public final int OUTPUT_STREAM_BUFFER_SIZE = 1024 * 1024;
+	public final static String STORE_NAME_FORMAT = "store.warc.%s.%s.gz";
+	public final static String URL_NAME_FORMAT = "urls.%s.%s.gz";
 	public final static String DIGESTS_NAME = "digests.bloom";
 	public final static int NUM_GZ_WARC_RECORDS = 16;
 	private int maxRecordsPerFile = 25600;
@@ -99,6 +100,7 @@ public class MultiWarcStore implements Closeable, Store {
 		
 		if ( contentDigest == null ) throw new NullPointerException( "Content digest is null" );
 		LOGGER.debug("MultiWarcStore:Store Uri = "+ uri.toString());
+		//System.out.println("\nContent: \n"+ EntityUtils.toString(response.getEntity())); //Prints the content of a page with HTML
 		final HttpResponseWarcRecord record = new HttpResponseWarcRecord( uri, response );
 		HeaderGroup warcHeaders = record.getWarcHeaders();
 		warcHeaders.updateHeader( new WarcHeader( WarcHeader.Name.WARC_PAYLOAD_DIGEST, "bubing:" + Hex.encodeHexString( contentDigest ) ) );
@@ -123,7 +125,7 @@ public class MultiWarcStore implements Closeable, Store {
 				urlOutputStream.close();
 				createNewWriter();
 			}
-			urlWriter.write(uri.toString());
+			urlWriter.write(uri.toString() + '\n');
 		}
 		warcWriter.write( record );
 		currentNumberOfRecordsInFile += 1;
