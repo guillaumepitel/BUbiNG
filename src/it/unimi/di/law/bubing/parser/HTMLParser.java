@@ -300,6 +300,7 @@ public class HTMLParser<T> implements Parser<T> {
 	protected static final TextPattern URLEQUAL_PATTERN = new TextPattern("URL=", TextPattern.CASE_INSENSITIVE);
 	/** The size of the internal Jericho buffer. */
 	public static final int CHAR_BUFFER_SIZE = 128 * 1024;
+	private static final int buffersForUrlsSize = 100;
 
 	/** The character buffer. It is set up at construction time, but it can be changed later. */
 	protected final char[] buffer;
@@ -487,7 +488,7 @@ public class HTMLParser<T> implements Parser<T> {
 		final StreamedSource streamedSource = new StreamedSource(new InputStreamReader(contentStream, charset));
 		StringBuilder linkContent = new StringBuilder();
 		StringBuilder afterLinkContent = new StringBuilder();
-		EvictingQueue<Character> stringBeforeLinkQueue = EvictingQueue.create(50);
+		EvictingQueue<Character> stringBeforeLinkQueue = EvictingQueue.create(buffersForUrlsSize);
 		boolean isAfterLink = false;
 		boolean insideAnchorElem = false;
 
@@ -575,11 +576,12 @@ public class HTMLParser<T> implements Parser<T> {
 					if (name == HTMLElementName.A)
 					{
 						if (insideAnchorElem) {
-							System.out.print("Before Link \n\"");
-							for (Character c : stringBeforeLinkQueue) {
-								System.out.print(c.toString());
-							}
-							System.out.println("\"\nContent :" + linkContent);
+							System.out.print("\n\nBefore Link \n\"");
+							StringBuilder sb = new StringBuilder();
+							for (Character c : stringBeforeLinkQueue)
+								sb.append(c);
+							System.out.println(sb.toString().replaceAll("\n", " ").replaceAll("[\\s\\p{Z}][\\s\\p{Z}]+"," " + '\"'));
+							System.out.println("Content : \n" + linkContent);
 						}
 						insideAnchorElem = false;
 						isAfterLink = true;
@@ -605,7 +607,7 @@ public class HTMLParser<T> implements Parser<T> {
 							else
 								stringBeforeLinkQueue.add( ((CharacterReference) segment).getChar());
 						else {
-							String s = segment.toString().replaceAll("\n", " ").replaceAll("[\\s\\p{Z}][\\s\\p{Z}]+"," ");
+							String s = segment.toString();
 							if (insideAnchorElem)
 								linkContent.append(s);
 							else
@@ -614,11 +616,11 @@ public class HTMLParser<T> implements Parser<T> {
 						}
 						if (isAfterLink)
 						{
-							if (afterLinkContent.length() < 50)
+							if (afterLinkContent.length() < buffersForUrlsSize)
 								afterLinkContent.append(segment.toString().replaceAll("\n", " ").replaceAll("[\\s\\p{Z}][\\s\\p{Z}]+"," "));
-							if (afterLinkContent.length() >= 50) {
+							if (afterLinkContent.length() >= buffersForUrlsSize) {
 								System.out.print("After Link \n\"");
-								System.out.print(afterLinkContent.substring(0,50));
+								System.out.print(afterLinkContent.substring(0,buffersForUrlsSize));
 								System.out.println("\"\n");
 								isAfterLink = false;
 								afterLinkContent.setLength(0);
