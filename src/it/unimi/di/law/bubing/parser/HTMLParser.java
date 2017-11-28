@@ -300,7 +300,6 @@ public class HTMLParser<T> implements Parser<T> {
 	protected static final TextPattern URLEQUAL_PATTERN = new TextPattern("URL=", TextPattern.CASE_INSENSITIVE);
 	/** The size of the internal Jericho buffer. */
 	public static final int CHAR_BUFFER_SIZE = 128 * 1024;
-	private static final int buffersForUrlsSize = 100;
 
 	/** The character buffer. It is set up at construction time, but it can be changed later. */
 	protected final char[] buffer;
@@ -421,6 +420,41 @@ public class HTMLParser<T> implements Parser<T> {
 		linkReceiver.link(base.resolve(url));
 	}
 
+	private static final int buffersForUrlsSize = 100;
+	StringBuilder linkContent = new StringBuilder();
+	StringBuilder afterLinkContent = new StringBuilder();
+	EvictingQueue<Character> stringBeforeLinkQueue = EvictingQueue.create(buffersForUrlsSize);
+	StringBuilder sbBeforeLink = new StringBuilder();
+	String linkLastHref = new String();
+	String linkLastName = new String();
+	String linkLastTitle = new String();
+	boolean isAfterLink = false;
+	boolean insideAnchorElem = false;
+
+	protected void displayLink(final String url, final String beforeLink, final String contentLink, final String afterLink)
+	{
+		System.out.println();
+		System.out.println("Site : " + url);
+		System.out.println("href : " + linkLastHref);
+		if (linkLastName != null)
+			System.out.println("name : " + linkLastName);
+		if (linkLastTitle != null)
+			System.out.println("title : " + linkLastTitle);
+		if (beforeLink != null)
+			if (!beforeLink.matches("^\\s+$"))
+			System.out.println("Before link : " + beforeLink.replaceAll("^\\s+", ""));
+		if (contentLink != null)
+			System.out.println("Content : " + contentLink);
+		System.out.println("After Link in display function :");
+		System.out.println(afterLink);
+		afterLinkContent.setLength(0);
+		linkContent.setLength(0);
+		isAfterLink = false;
+		linkLastHref = null;
+		linkLastName = null;
+		linkLastTitle = null;
+	}
+
 	@Override
 	public byte[] parse(final URI uri, final HttpResponse httpResponse, final LinkReceiver linkReceiver) throws IOException {
 		guessedCharset = "ISO-8859-1";
@@ -486,11 +520,6 @@ public class HTMLParser<T> implements Parser<T> {
 
 		@SuppressWarnings("resource")
 		final StreamedSource streamedSource = new StreamedSource(new InputStreamReader(contentStream, charset));
-		StringBuilder linkContent = new StringBuilder();
-		StringBuilder afterLinkContent = new StringBuilder();
-		EvictingQueue<Character> stringBeforeLinkQueue = EvictingQueue.create(buffersForUrlsSize);
-		boolean isAfterLink = false;
-		boolean insideAnchorElem = false;
 
 		if (buffer != null) streamedSource.setBuffer(buffer);
 		if (digestAppendable != null) digestAppendable.init(crossAuthorityDuplicates? null : uri);
@@ -513,9 +542,13 @@ public class HTMLParser<T> implements Parser<T> {
 					if (linkReceiver == null) continue; // No link receiver, nothing to do.
 
 					if (name == HTMLElementName.A) {
+						sbBeforeLink.setLength(0);
 						isAfterLink = false;
 						insideAnchorElem = true;
 						linkContent.setLength(0);
+						linkLastHref = startTag.getAttributeValue("href");
+						linkLastName = startTag.getAttributeValue("name");
+						linkLastTitle = startTag.getAttributeValue("title");
 					}
 					// IFRAME or FRAME + SRC
 					if (name == HTMLElementName.IFRAME || name == HTMLElementName.FRAME || name == HTMLElementName.EMBED) process(linkReceiver, base, startTag.getAttributeValue("src"));
@@ -575,14 +608,9 @@ public class HTMLParser<T> implements Parser<T> {
 					}
 					if (name == HTMLElementName.A)
 					{
-						if (insideAnchorElem) {
-							System.out.print("\n\nBefore Link \n\"");
-							StringBuilder sb = new StringBuilder();
+						if (insideAnchorElem)
 							for (Character c : stringBeforeLinkQueue)
-								sb.append(c);
-							System.out.println(sb.toString().replaceAll("\n", " ").replaceAll("[\\s\\p{Z}][\\s\\p{Z}]+"," " + '\"'));
-							System.out.println("Content : \n" + linkContent);
-						}
+								sbBeforeLink.append(c);
 						insideAnchorElem = false;
 						isAfterLink = true;
 					}
@@ -591,21 +619,23 @@ public class HTMLParser<T> implements Parser<T> {
 						digestAppendable.endTag(endTag);
 					}
 				}
-				else
+				else {
 					if (inSpecialText == 0) {
 						if (textProcessor != null) {
-							if (segment instanceof CharacterReference) ((CharacterReference)segment).appendCharTo(textProcessor);
+							if (segment instanceof CharacterReference)
+								((CharacterReference) segment).appendCharTo(textProcessor);
 							else textProcessor.append(segment);
 						}
 						if (digestAppendable != null) {
-							if (segment instanceof CharacterReference) ((CharacterReference)segment).appendCharTo(digestAppendable);
+							if (segment instanceof CharacterReference)
+								((CharacterReference) segment).appendCharTo(digestAppendable);
 							else digestAppendable.append(segment);
 						}
 						if (segment instanceof CharacterReference)
 							if (insideAnchorElem)
 								((CharacterReference) segment).appendCharTo(linkContent);
 							else
-								stringBeforeLinkQueue.add( ((CharacterReference) segment).getChar());
+								stringBeforeLinkQueue.add(((CharacterReference) segment).getChar());
 						else {
 							String s = segment.toString();
 							if (insideAnchorElem)
@@ -614,19 +644,25 @@ public class HTMLParser<T> implements Parser<T> {
 								for (char c : s.toCharArray())
 									stringBeforeLinkQueue.add(c);
 						}
-						if (isAfterLink)
-						{
+						if (isAfterLink) {
 							if (afterLinkContent.length() < buffersForUrlsSize)
-								afterLinkContent.append(segment.toString().replaceAll("\n", " ").replaceAll("[\\s\\p{Z}][\\s\\p{Z}]+"," "));
+								afterLinkContent.append(segment.toString().replaceAll("\n", " ").replaceAll("[\\s\\p{Z}][\\s\\p{Z}]+", " "));
 							if (afterLinkContent.length() >= buffersForUrlsSize) {
 								System.out.print("After Link \n\"");
-								System.out.print(afterLinkContent.substring(0,buffersForUrlsSize));
+								System.out.print(afterLinkContent.substring(0, buffersForUrlsSize).replaceAll(" +", " "));
 								System.out.println("\"\n");
-								isAfterLink = false;
-								afterLinkContent.setLength(0);
+//								afterLinkContent.setLength(0);
 							}
 						}
 					}
+				}
+				if (isAfterLink)
+					displayLink(uri.toString(),
+							sbBeforeLink.toString().replaceAll("\n", " ").replaceAll("[\\s\\p{Z}][\\s\\p{Z}]+"," ").replaceAll(" +", " "),
+							linkContent.toString().replaceAll("\n", " ").replaceAll("[\\s\\p{Z}][\\s\\p{Z}]+"," ").replaceAll(" +", " "),
+							afterLinkContent.toString() + "| Fin After Link");
+				isAfterLink = false;
+//				displayImg();
 			}
 		}
 
