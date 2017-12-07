@@ -37,7 +37,9 @@ import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import it.unimi.dsi.fastutil.shorts.Short2ShortMap;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.nio.BufferOverflowException;
 import java.nio.charset.Charset;
@@ -48,6 +50,9 @@ import java.util.concurrent.locks.Lock;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.http.Header;
+import org.apache.http.HttpEntity;
+import org.apache.http.entity.BasicHttpEntity;
+import org.apache.http.entity.InputStreamEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -392,6 +397,9 @@ public class ParsingThread extends Thread {
 										guessedMetaCharset = parser.getMetaCharset();
 										guessedHeaderCharset = parser.getHeaderCharset();
 										icuGuessedCharset = icuGuessedCharset(parser.getPageContent().getBytes(parser.getCharset()));
+										InputStream is = new ByteArrayInputStream(parser.getPageContent().getBytes(parser.getCharset()));
+										HttpEntity cleanedResponse = new InputStreamEntity(is);
+										fetchData.response().setEntity(cleanedResponse);
 //										System.out.println("Bubing Guessed Charset : " + guessedCharset + "\nIcu4j Guessed Charset : " + icuGuessedCharset + "\n-------------");
 										break;
 									}

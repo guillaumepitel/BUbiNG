@@ -305,6 +305,7 @@ public class HTMLParser<T> implements Parser<T> {
 	protected String guessedCharset;
 	/** The charset ICU4J guessed for the last response. */
 	protected StringBuilder pageContent;
+	protected StringBuilder cleanedContent;
 	protected Charset charset;
 	/** An object emboding the digest logic, or {@code null} for no digest computation. */
 	protected final DigestAppendable digestAppendable;
@@ -429,6 +430,7 @@ public class HTMLParser<T> implements Parser<T> {
 		metaCharset = null;
 		headerCharset = null;
 		pageContent = new StringBuilder();
+		cleanedContent = new StringBuilder();
 
 		final HttpEntity entity = httpResponse.getEntity();
 
@@ -629,6 +631,11 @@ public class HTMLParser<T> implements Parser<T> {
 	@Override
 	public String getPageContent() {
 		return (pageContent.toString());
+	}
+
+	@Override
+	public String getCleanedContent() {
+		return (cleanedContent.toString());
 	}
 
 	/** Returns the BURL location header, if present; if it is not present, but the page contains a valid metalocation, the latter
