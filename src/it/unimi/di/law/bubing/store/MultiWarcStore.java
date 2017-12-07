@@ -24,14 +24,12 @@ import it.unimi.di.law.warc.records.HttpResponseWarcRecord;
 import it.unimi.di.law.warc.records.WarcHeader;
 import it.unimi.dsi.fastutil.io.FastBufferedOutputStream;
 
-import java.io.Closeable;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.net.URI;
 import java.util.UUID;
 import java.util.Date;
 import java.text.SimpleDateFormat;
+import java.util.zip.GZIPOutputStream;
 
 
 import org.apache.commons.codec.binary.Hex;
@@ -40,6 +38,7 @@ import org.apache.http.message.HeaderGroup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+
 //RELEASE-STATUS: DIST
 
 /** A {@link Store} implementation using the {@link it.unimi.di.law.warc} package. */
@@ -47,8 +46,9 @@ import org.slf4j.LoggerFactory;
 public class MultiWarcStore implements Closeable, Store {
 	private final static Logger LOGGER = LoggerFactory.getLogger( WarcStore.class );
 
-	public final int OUTPUT_STREAM_BUFFER_SIZE = 1024 * 1024;
-	public final static String STORE_NAME_FORMAT = "store.warc.%s.%s.gz";
+	private final int OUTPUT_STREAM_BUFFER_SIZE = 1024 * 1024;
+	private final static String STORE_NAME_FORMAT = "store.warc.%s.%s.gz";
+	private final static String URL_NAME_FORMAT = "urls.%s.%s.gz";
 	public final static String DIGESTS_NAME = "digests.bloom";
 	public final static int NUM_GZ_WARC_RECORDS = 16;
 	private int maxRecordsPerFile = 25600;
@@ -58,6 +58,8 @@ public class MultiWarcStore implements Closeable, Store {
 	private Object counterLock = new Object();
 	private FastBufferedOutputStream warcOutputStream;
 	private ParallelBufferedWarcWriter warcWriter;
+	private OutputStream urlOutputStream;
+	private BufferedWriter urlWriter;
 
 	private final File storeDir;
 
@@ -75,17 +77,27 @@ public class MultiWarcStore implements Closeable, Store {
 		return String.format(STORE_NAME_FORMAT, datetime, UUID.randomUUID());
 	}
 
+	private String generateUrlName(Date d) {
+		SimpleDateFormat ft = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss.SSS");
+		String datetime = ft.format(d);
+		return String.format(URL_NAME_FORMAT, datetime, UUID.randomUUID());
+	}
 
 	private void createNewWriter() throws IOException {
 		Date now = new Date();
 		final File warcFile = new File( storeDir, generateStoreName(now) );
+		final File urlFile = new File( storeDir, generateUrlName(now) );
+
 		warcOutputStream = new FastBufferedOutputStream( new FileOutputStream( warcFile ), OUTPUT_STREAM_BUFFER_SIZE );
 		warcWriter = new ParallelBufferedWarcWriter(warcOutputStream, true );
+		urlOutputStream = new FastBufferedOutputStream( new GZIPOutputStream(new FileOutputStream( urlFile )), OUTPUT_STREAM_BUFFER_SIZE );
+		urlWriter = new BufferedWriter(new OutputStreamWriter(urlOutputStream, "UTF-8"));
 	}
 		
 	@Override
 	public void store( final URI uri, final HttpResponse response, final boolean isDuplicate, final byte[] contentDigest, final String guessedMetaCharset, final String guessedHeaderCharset, final String icuGuessedCharset) throws IOException, InterruptedException {
 		if ( contentDigest == null ) throw new NullPointerException( "Content digest is null" );
+		LOGGER.debug("MultiWarcStore:Store Uri = "+ uri.toString());
 		final HttpResponseWarcRecord record = new HttpResponseWarcRecord( uri, response );
 		HeaderGroup warcHeaders = record.getWarcHeaders();
 		warcHeaders.updateHeader( new WarcHeader( WarcHeader.Name.WARC_PAYLOAD_DIGEST, "bubing:" + Hex.encodeHexString( contentDigest ) ) );
@@ -104,26 +116,30 @@ public class MultiWarcStore implements Closeable, Store {
 				LOGGER.info( "Target number of records reached, creating new output file" );
 				try {
 					warcWriter.close();
+					urlWriter.close();
 				} catch ( IOException e ) {
 					LOGGER.error( "Closing interrupted");
 				}
 				warcOutputStream.close();
+				urlOutputStream.close();
 				createNewWriter();
 			}
+			urlWriter.write(uri.toString());
 		}
 		warcWriter.write( record );
-
 		currentNumberOfRecordsInFile += 1;
 	}
-	
+
 	@Override
 	public synchronized void close() throws IOException {
 		try {
 			warcWriter.close();
+			urlWriter.close();
 		}
 		catch ( IOException shouldntHappen ) {
 			LOGGER.error( "Interrupted while closing parallel output stream" );
 		}
 		warcOutputStream.close();
+		urlOutputStream.close();
 	}
 }

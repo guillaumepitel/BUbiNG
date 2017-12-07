@@ -52,7 +52,6 @@ public class WarcStore implements Closeable, Store {
 
 	public WarcStore(final RuntimeConfiguration rc) throws IOException {
 		final File file = new File(rc.storeDir, STORE_NAME);
-
 		if (rc.crawlIsNew) {
 			if (file.exists() && file.length() != 0) throw new IOException("Store exists and it is not empty, but the crawl is new; it will not be overwritten: " + file);
 			outputStream = new FastBufferedOutputStream(new FileOutputStream(file), OUTPUT_STREAM_BUFFER_SIZE);
@@ -66,6 +65,7 @@ public class WarcStore implements Closeable, Store {
 	@Override
 	public void store(final URI uri, final HttpResponse response, final boolean isDuplicate, final byte[] contentDigest, final String guessedCharset, final String icuGuessedCharset) throws IOException, InterruptedException {
 		if (contentDigest == null) throw new NullPointerException("Content digest is null");
+		LOGGER.debug("WarcStore:Store Uri = " + uri.toString());
 		final HttpResponseWarcRecord record = new HttpResponseWarcRecord(uri, response);
 
 		HeaderGroup warcHeaders = record.getWarcHeaders();

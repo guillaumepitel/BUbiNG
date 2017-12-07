@@ -311,7 +311,11 @@ public class StartupConfiguration {
 	@StoreSpecification
 	@OptionalSpecification(value="it.unimi.di.law.bubing.store.WarcStore")
 	public Class<? extends Store> storeClass;
-	
+
+	/** A directory where the retrieved content will be written. It must <em>not</em> exist. */
+	@OptionalSpecification(value="urls.logs")
+	public String storeURLs;
+
 	/** The number of URL records to store per file with MultiWarcStore class (for instance 256000 produces 100-300MB files approx.). */
 	@OptionalSpecification(value="256000")
         public int maxRecordsPerFile;
