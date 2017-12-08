@@ -160,6 +160,8 @@ public interface Parser<T> extends Filter<URIResponse> {
 
 	public String getHeaderCharset();
 
+	public String getCleanedContent();
+
 	/**
 	 * Returns the result of the processing.
 	 *

@@ -123,6 +123,11 @@ public class BinaryParser implements Parser<Void> {
 	}
 
 	@Override
+	public String getCleanedContent() {
+		return null;
+	}
+
+	@Override
 	public BinaryParser copy() {
 		return new BinaryParser(hashFunction, crossAuthorityDuplicates);
 	}

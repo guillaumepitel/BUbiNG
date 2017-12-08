@@ -503,6 +503,7 @@ public class HTMLParser<T> implements Parser<T> {
 
 		int lastSegmentEnd = 0;
 		int inSpecialText = 0;
+		boolean closeSpecialText = false;
 		for (Segment segment : streamedSource) {
 			if (segment.getEnd() > lastSegmentEnd) {
 				lastSegmentEnd = segment.getEnd();
@@ -572,6 +573,7 @@ public class HTMLParser<T> implements Parser<T> {
 					final String name = endTag.getName();
 					if (name == HTMLElementName.STYLE || name == HTMLElementName.SCRIPT) {
 						inSpecialText = Math.max(0, inSpecialText - 1); // Ignore extra closing tags
+						closeSpecialText = true;
 					}
 
 					if (digestAppendable != null) {
@@ -592,6 +594,13 @@ public class HTMLParser<T> implements Parser<T> {
 						if (!(segment instanceof CharacterReference))
 							pageContent.append(segment);
 					}
+				if (inSpecialText == 0)
+					if (!closeSpecialText) {
+						if (segment != null)
+							cleanedContent.append(segment);
+					}
+					else
+						closeSpecialText = false;
 			}
 		}
 

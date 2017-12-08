@@ -397,7 +397,7 @@ public class ParsingThread extends Thread {
 										guessedMetaCharset = parser.getMetaCharset();
 										guessedHeaderCharset = parser.getHeaderCharset();
 										icuGuessedCharset = icuGuessedCharset(parser.getPageContent().getBytes(parser.getCharset()));
-										InputStream is = new ByteArrayInputStream(parser.getPageContent().getBytes(parser.getCharset()));
+										InputStream is = new ByteArrayInputStream(parser.getCleanedContent().getBytes(parser.getCharset()));
 										HttpEntity cleanedResponse = new InputStreamEntity(is);
 										fetchData.response().setEntity(cleanedResponse);
 //										System.out.println("Bubing Guessed Charset : " + guessedCharset + "\nIcu4j Guessed Charset : " + icuGuessedCharset + "\n-------------");
