@@ -124,7 +124,7 @@ public class MultiWarcStore implements Closeable, Store {
 				urlOutputStream.close();
 				createNewWriter();
 			}
-			urlWriter.write(uri.toString());
+			urlWriter.write(uri.toString() + '\n');
 		}
 		warcWriter.write( record );
 		currentNumberOfRecordsInFile += 1;

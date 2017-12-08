@@ -121,7 +121,7 @@ public class Agent extends JGroupsJobManager<BubingJob> {
 		ByteArrayList list = new ByteArrayList();
 		while(rc.seed.hasNext()) {
 			final URI nextSeed = rc.seed.next();
-			if (nextSeed != null) frontier.enqueue(BURL.toByteArrayList(nextSeed, list));
+			if (nextSeed != null) frontier.enqueueIfLocal(BURL.toByteArrayList(nextSeed, list));
 		}
 		LOGGER.info("Finished reading seeds");
 
