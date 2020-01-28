@@ -280,13 +280,13 @@ public final class PulsarManager implements AutoCloseable
         .subscriptionType(SubscriptionType.Key_Shared)
         //.receiverQueueSize(512)
         //.maxTotalReceiverQueueSizeAcrossPartitions(4096)
-        .acknowledgmentGroupTime(500, TimeUnit.MILLISECONDS)
+        //.acknowledgmentGroupTime(500, TimeUnit.MILLISECONDS)
         .messageListener(new CrawlRequestsReceiver(frontier))
         .subscriptionName("toCrawlSubscription")
         .consumerName(rc.name)
         .topic(topicName)
         .subscribeAsync();
-      LOGGER.warn("Requested creation of {} CrawlRequest consumers for topic {}", rc.pulsarFrontierTopicNumber, topicName);
+      LOGGER.warn("Requested creation of CrawlRequest consumer for topic {}", topicName);
     }
   }
 }
