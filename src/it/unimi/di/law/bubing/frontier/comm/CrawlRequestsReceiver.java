@@ -43,7 +43,7 @@ public final class CrawlRequestsReceiver implements MessageListener<byte[]>
 
 	/** A reference to the frontier. */
 	private final Frontier frontier;
-	private final int topic;
+	//private final int topic;
 
 	private long messageCount;
 
@@ -51,9 +51,10 @@ public final class CrawlRequestsReceiver implements MessageListener<byte[]>
 	 *
 	 * @param frontier the frontier instantiating this thread.
 	 */
-	public CrawlRequestsReceiver( final Frontier frontier, final int topic ) {
+	//public CrawlRequestsReceiver( final Frontier frontier, final int topic ) {
+	public CrawlRequestsReceiver(final Frontier frontier) {
 		this.frontier = frontier;
-		this.topic = topic;
+		//this.topic = topic;
 		this.messageCount = 0;
 	}
 
@@ -66,17 +67,17 @@ public final class CrawlRequestsReceiver implements MessageListener<byte[]>
 			frontier.numberOfReceivedURLs.addAndGet( 1 );
 			messageCount++;
 			if (messageCount == 1000)
-				LOGGER.warn("PULSAR Consumer for topic {} is active", topic);
+				LOGGER.warn("PULSAR Consumer is active");
 			consumer.acknowledge( message );
 		}
 		catch ( InvalidProtocolBufferException e ) {
-			LOGGER.error( String.format("Error while parsing message for topic %d",topic), e );
+			LOGGER.error("Error while parsing message", e);
 		}
 		catch ( InterruptedException e ) {
-			LOGGER.error( String.format("Interrupted while processing message for topic %d",topic), e );
+			LOGGER.error("Interrupted while processing message", e);
 		}
 		catch ( PulsarClientException e ) {
-		  LOGGER.error( String.format("While acknowledging message for topic %d",topic), e );
+		  LOGGER.error("While acknowledging message", e);
     }
 	}
 }

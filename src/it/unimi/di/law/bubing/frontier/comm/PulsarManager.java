@@ -35,8 +35,8 @@ public final class PulsarManager implements AutoCloseable
     return fetchInfoProducerRepository.get( urlKey );
   }
 
-  public Consumer<byte[]> getCrawlRequestConsumer( final int topic ) {
-    return crawlRequestConsumerRepository.get( topic );
+  public Consumer<byte[]> getCrawlRequestConsumer() {
+    return crawlRequestConsumerRepository.get();
   }
 
   public void createFetchInfoProducers() {
@@ -44,7 +44,7 @@ public final class PulsarManager implements AutoCloseable
   }
 
   public void createCrawlRequestConsumers( final Frontier frontier ) {
-    crawlRequestConsumerRepository.requestConsumers(client, frontier, rc.priorityCrawl);
+    crawlRequestConsumerRepository.requestConsumer(client, frontier, rc.priorityCrawl);
   }
 
   public void close() throws InterruptedException {
@@ -190,123 +190,104 @@ public final class PulsarManager implements AutoCloseable
 
   private final class CrawlRequestConsumerRepository
   {
-    private final CompletableFuture<Consumer<byte[]>>[] futures;
-    private final Consumer<byte[]>[] consumers;
+    private CompletableFuture<Consumer<byte[]>> future;
+    private Consumer<byte[]> consumer;
 
     private CrawlRequestConsumerRepository() {
-      this.futures = new CompletableFuture[ rc.pulsarFrontierTopicNumber ];
-      this.consumers = new Consumer[ rc.pulsarFrontierTopicNumber ];
+      this.future = null;
+      this.consumer = null;
     }
 
-    public Consumer<byte[]> get( final int topic ) {
-      if ( consumers[topic] != null )
-        return consumers[topic];
-      return getSlowPath( topic );
+    public Consumer<byte[]> get() {
+      if (consumer != null)
+        return consumer;
+      return getSlowPath();
     }
 
     public void close() throws InterruptedException {
-      closeConsumers();
-      closeFutures();
+      closeConsumer();
+      closeFuture();
     }
 
-    private void closeConsumers() throws InterruptedException {
+    private void closeConsumer() throws InterruptedException {
       try {
         CompletableFuture.allOf(
-          java.util.stream.Stream.of( consumers )
-            .filter( java.util.Objects::nonNull )
-            .map( Consumer::closeAsync )
-            .toArray( CompletableFuture[]::new )
-        ).get( 5, TimeUnit.SECONDS );
+          java.util.stream.Stream.of(consumer)
+            .filter( java.util.Objects::nonNull)
+            .map(Consumer::closeAsync)
+            .toArray(CompletableFuture[]::new)
+        ).get(5, TimeUnit.SECONDS);
       }
-      catch ( TimeoutException e ) {
-        LOGGER.error( "Timeout while waiting for CrawlRequest consumers to close", e );
+      catch (TimeoutException e) {
+        LOGGER.error("Timeout while waiting for CrawlRequest consumers to close", e);
       }
-      catch ( ExecutionException e ) {
-        LOGGER.error( "Failed to close CrawlRequest consumers", e );
+      catch (ExecutionException e) {
+        LOGGER.error("Failed to close CrawlRequest consumers", e);
       }
     }
 
-    private void closeFutures() throws InterruptedException {
+    private void closeFuture() throws InterruptedException {
       try {
         CompletableFuture.allOf(
-          java.util.stream.Stream.of( futures )
-            .filter( java.util.Objects::nonNull )
-            .filter( (f) -> !f.cancel(true) )
-            .map( (f) -> f.getNow(null) )
-            .filter( java.util.Objects::nonNull )
-            .map( Consumer::closeAsync )
-            .toArray( CompletableFuture[]::new )
-        ).get( 5, TimeUnit.SECONDS );
+          java.util.stream.Stream.of(future)
+            .filter(java.util.Objects::nonNull)
+            .filter((f) -> !f.cancel(true))
+            .map((f) -> f.getNow(null))
+            .filter(java.util.Objects::nonNull)
+            .map(Consumer::closeAsync)
+            .toArray(CompletableFuture[]::new)
+        ).get(5, TimeUnit.SECONDS);
       }
-      catch ( TimeoutException e ) {
-        LOGGER.error( "Timeout while waiting for CrawlRequest consumers to close", e );
+      catch (TimeoutException e) {
+        LOGGER.error("Timeout while waiting for CrawlRequest consumers to close", e);
       }
-      catch ( ExecutionException e ) {
-        LOGGER.error( "Failed to close CrawlRequest consumers", e );
+      catch (ExecutionException e) {
+        LOGGER.error("Failed to close CrawlRequest consumers", e);
       }
     }
 
-    private Consumer<byte[]> getSlowPath( final int topic ) {
-      final Consumer<byte[]> consumer = getSlowPathImpl( topic );
-      // if fail to get consumer, expect NPE later
-      consumers[topic] = consumer;
-      futures[topic] = null;
+    private Consumer<byte[]> getSlowPath() {
+      consumer = getSlowPathImpl();
+      future = null;
       return consumer;
     }
 
-    private Consumer<byte[]> getSlowPathImpl( final int topic ) {
+    private Consumer<byte[]> getSlowPathImpl() {
       int retry = 0;
-      while ( true ) {
+      while (true) {
         try {
-          return futures[topic].get( 1, TimeUnit.SECONDS );
+          return future.get(1, TimeUnit.SECONDS);
         }
-        catch ( TimeoutException e ) {
-          LOGGER.warn(String.format( "Timeout while creating CrawlRequest consumer [%d]%s", topic, retry == 0 ? "" : String.format(" (%d)",retry)  ));
+        catch (TimeoutException e) {
+          LOGGER.warn(String.format("Timeout while creating CrawlRequest consumer %s", retry == 0 ? "" : String.format(" (%d)", retry)));
           retry += 1;
         }
         catch ( InterruptedException|ExecutionException e ) {
-          LOGGER.error(String.format( "While creating CrawlRequest consumer [%d]", topic), e);
+          LOGGER.error("While creating CrawlRequest consumer", e);
           return null;
         }
       }
     }
 
-    private void requestConsumers(final PulsarClient client, final Frontier frontier, final boolean priorityCrawl) {
-      for (int topic = 0; topic < rc.pulsarFrontierTopicNumber; ++topic)
-        futures[topic] = requestConsumer(client, frontier, topic, priorityCrawl);
+    private void requestConsumer(final PulsarClient client, final Frontier frontier, final boolean priorityCrawl) {
       String topicName;
       if (priorityCrawl)
-        topicName = rc.pulsarFrontierToPromptlyCrawlURLsTopic;
+        topicName = String.format("%s", rc.pulsarFrontierToPromptlyCrawlURLsTopic);
       else
-        topicName = rc.pulsarFrontierToCrawlURLsTopic;
-      LOGGER.warn("Requested creation of {} CrawlRequest consumers for topic {}", rc.pulsarFrontierTopicNumber, topicName);
-    }
+        topicName = String.format("%s", rc.pulsarFrontierToCrawlURLsTopic);
 
-    private String getConsumerName(final int topic) {
-      return String.format("%06d-%s",
-        ((rc.pulsarFrontierTopicNumber / rc.pulsarFrontierNodeNumber) * rc.pulsarFrontierNodeId + topic) % rc.pulsarFrontierTopicNumber,
-        rc.name);
-    }
-
-    private CompletableFuture<Consumer<byte[]>> requestConsumer(final PulsarClient client, final Frontier frontier,
-                                                                final int topic, final boolean priorityCrawl) {
-      String topicName;
-      if (priorityCrawl)
-        topicName = String.format("%s-%d", rc.pulsarFrontierToPromptlyCrawlURLsTopic, topic);
-      else
-        topicName = String.format("%s-%d", rc.pulsarFrontierToCrawlURLsTopic, topic);
-
-      return client.newConsumer()
-        .subscriptionType( SubscriptionType.Failover )
+      future = client.newConsumer()
+        .subscriptionType(SubscriptionType.Key_Shared)
         //.receiverQueueSize(512)
         //.maxTotalReceiverQueueSizeAcrossPartitions(4096)
-        .acknowledgmentGroupTime( 500, TimeUnit.MILLISECONDS )
-        .messageListener( new CrawlRequestsReceiver(frontier,topic) )
-        .subscriptionInitialPosition( SubscriptionInitialPosition.Latest )
-        .subscriptionName( "toCrawlSubscription" )
-        .consumerName(getConsumerName(topic))
+        .acknowledgmentGroupTime(500, TimeUnit.MILLISECONDS)
+        .messageListener(new CrawlRequestsReceiver(frontier))
+        .subscriptionInitialPosition(SubscriptionInitialPosition.Latest)
+        .subscriptionName("toCrawlSubscription")
+        .consumerName(rc.name)
         .topic(topicName)
         .subscribeAsync();
+      LOGGER.warn("Requested creation of {} CrawlRequest consumers for topic {}", rc.pulsarFrontierTopicNumber, topicName);
     }
   }
 }
