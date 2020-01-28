@@ -43,7 +43,6 @@ public final class CrawlRequestsReceiver implements MessageListener<byte[]>
 
 	/** A reference to the frontier. */
 	private final Frontier frontier;
-	//private final int topic;
 
 	private long messageCount;
 
@@ -51,10 +50,8 @@ public final class CrawlRequestsReceiver implements MessageListener<byte[]>
 	 *
 	 * @param frontier the frontier instantiating this thread.
 	 */
-	//public CrawlRequestsReceiver( final Frontier frontier, final int topic ) {
 	public CrawlRequestsReceiver(final Frontier frontier) {
 		this.frontier = frontier;
-		//this.topic = topic;
 		this.messageCount = 0;
 	}
 

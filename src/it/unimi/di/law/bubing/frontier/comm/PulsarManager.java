@@ -282,7 +282,6 @@ public final class PulsarManager implements AutoCloseable
         //.maxTotalReceiverQueueSizeAcrossPartitions(4096)
         .acknowledgmentGroupTime(500, TimeUnit.MILLISECONDS)
         .messageListener(new CrawlRequestsReceiver(frontier))
-        .subscriptionInitialPosition(SubscriptionInitialPosition.Latest)
         .subscriptionName("toCrawlSubscription")
         .consumerName(rc.name)
         .topic(topicName)
