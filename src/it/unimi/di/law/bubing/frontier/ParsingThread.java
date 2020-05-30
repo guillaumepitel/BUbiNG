@@ -4,7 +4,6 @@ import java.io.*;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URI;
 import java.nio.BufferOverflowException;
-import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
@@ -16,7 +15,6 @@ import com.exensa.wdl.protobuf.url.MsgURL;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 import it.unimi.di.law.bubing.categories.TextClassifier;
-import it.unimi.di.law.bubing.categories.TextInfo;
 import it.unimi.di.law.bubing.frontier.comm.PulsarHelper;
 import it.unimi.di.law.bubing.parser.*;
 import it.unimi.di.law.bubing.parser.html.RobotsTagState;
@@ -25,6 +23,7 @@ import it.unimi.di.law.warc.records.HttpResponseWarcRecord;
 import it.unimi.di.law.warc.util.InspectableCachedHttpEntity;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang.mutable.MutableInt;
 import org.apache.http.Header;
 import org.apache.http.HttpResponse;
 import org.apache.http.entity.BasicHttpEntity;
@@ -50,15 +49,8 @@ import com.exensa.wdl.protobuf.frontier.MsgFrontier;
  */
 
 import it.unimi.di.law.bubing.RuntimeConfiguration;
-import it.unimi.di.law.bubing.spam.SpamDetector;
 import it.unimi.di.law.bubing.store.Store;
 import it.unimi.di.law.warc.filters.Filter;
-import it.unimi.dsi.Util;
-import it.unimi.dsi.fastutil.shorts.Short2ShortMap;
-
-import java.util.stream.Stream;
-
-import static java.lang.System.nanoTime;
 //RELEASE-STATUS: DIST
 
 /** A thread parsing pages retrieved by a {@link FetchingThread}.
@@ -96,7 +88,7 @@ public class ParsingThread extends Thread {
     private final Filter<Link> scheduleFilter;
     private byte[] schemeAuthority; // FIXME: TODO: not used anymore
     private URI source;
-    private char[][] robotsFilter;
+    private URLRespectsRobots.RobotsRules robotsFilter;
     private MsgCrawler.FetchInfo.Builder fetchInfoBuilder;
 
     /** Creates the enqueuer.
@@ -115,7 +107,7 @@ public class ParsingThread extends Thread {
      * @param crawlRequest the crawl request for which the fetch was done
      * @param robotsFilter the robots filter of the (authority of the) page to be parsed.
      */
-    void init( final MsgFrontier.CrawlRequest crawlRequest, final char[][] robotsFilter ) {
+    void init( final MsgFrontier.CrawlRequest crawlRequest, final URLRespectsRobots.RobotsRules robotsFilter ) {
       this.source = PulsarHelper.toURI( crawlRequest.getUrlKey() );
       this.robotsFilter = robotsFilter;
       this.fetchInfoBuilder = MsgCrawler.FetchInfo.newBuilder();
@@ -391,11 +383,13 @@ public class ParsingThread extends Thread {
     if ( fetchData.robots ) {
       frontier.parsingRobotsCount.incrementAndGet();
       frontier.robotsWarcParallelOutputStream.get().write(new HttpResponseWarcRecord(fetchData.uri(), fetchData.response()));
-      if ((visitState.robotsFilter = URLRespectsRobots.parseRobotsResponse(fetchData, rc.userAgent)) == null) {
+      MutableInt crawlDelay = new MutableInt(0);
+      if ((visitState.robotsFilter = URLRespectsRobots.parseRobotsResponse(fetchData, rc.userAgent, crawlDelay)) == null) {
         // We go on getting/creating a workbench entry only if we have robots permissions.
         visitState.schedulePurge();
         LOGGER.warn("Visit state " + visitState + " killed by null robots.txt");
       }
+      visitState.setCrawlDelayMS(crawlDelay.intValue()*1000);
       return;
     }
 
@@ -455,10 +449,6 @@ public class ParsingThread extends Thread {
     if ( parseData == null )
       return null;
 
-    // Spam detection (NOTE: skipped if the parse() method throws an exception)
-    if ( frontier.rc.spamDetector != null )
-      updateSpammicity( parser, fetchData.visitState );
-
     if ( parseData.rewritten != null )
       rewriteContentToFetchData( parseData.rewritten, parseData.pageInfo.getGuessedCharset(), fetchData );
 
@@ -505,18 +495,6 @@ public class ParsingThread extends Thread {
       LOGGER.warn( "Exception while parsing " + fetchData.uri() + " with " + parser, e );
       frontier.parsingExceptionCount.incrementAndGet();
       return null;
-    }
-  }
-
-  private void updateSpammicity( final Parser<?> parser, final VisitState visitState ) {
-    final RuntimeConfiguration rc = frontier.rc;
-    if (visitState.termCountUpdates < rc.spamDetectionThreshold || rc.spamDetectionPeriodicity != Integer.MAX_VALUE) {
-      final Object result = parser.result();
-      if (result instanceof SpamTextProcessor.TermCount) visitState.updateTermCount((SpamTextProcessor.TermCount)result);
-      if ((visitState.termCountUpdates - rc.spamDetectionThreshold) % rc.spamDetectionPeriodicity == 0) {
-        visitState.spammicity = (float)((SpamDetector<Short2ShortMap>)rc.spamDetector).estimate(visitState.termCount);
-        LOGGER.info("Spammicity for " + visitState + ": " + visitState.spammicity + " (" + visitState.termCountUpdates + " updates)");
-      }
     }
   }
 

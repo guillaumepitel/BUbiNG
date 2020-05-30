@@ -16,6 +16,7 @@ import com.exensa.wdl.protobuf.crawler.MsgCrawler;
 import com.exensa.wdl.protobuf.url.MsgURL;
 import com.exensa.wdl.protobuf.frontier.MsgFrontier;
 import it.unimi.di.law.bubing.frontier.comm.PulsarHelper;
+import org.apache.http.Header;
 import org.apache.http.client.CookieStore;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.config.RequestConfig;
@@ -262,10 +263,13 @@ public final class FetchingThread extends Thread implements Closeable {
       frontier.runningFetchingThreads.incrementAndGet();
       while ( !stop ) {
         final VisitState visitState = getNextVisitState();
-        frontier.workingFetchingThreads.incrementAndGet();
-        if ( visitState != null && processVisitState(visitState) )
-          processFetchData();
-        frontier.workingFetchingThreads.decrementAndGet();
+        if ( visitState != null ) {
+          frontier.workingFetchingThreads.incrementAndGet(); // decrement is done below or in processFetchData()
+          if (!processVisitState(visitState) ) {
+            frontier.workingFetchingThreads.decrementAndGet();
+          } else
+            processFetchData();
+        }
       }
     }
     catch ( InterruptedException e ) {
@@ -386,10 +390,12 @@ public final class FetchingThread extends Thread implements Closeable {
 
   private void processFetchData() {
     if ( checkAndUpdateFetchData() ) {
+      frontier.workingFetchingThreads.decrementAndGet();
       frontier.results.add( fetchData );
       fetchData = null;
     }
     else {
+      frontier.workingFetchingThreads.decrementAndGet();
       if ( !fetchData.robots ) // FIXME: don't send fetchInfo for robots.txt
         frontier.enqueue(fetchInfoFailed());
       frontier.done.add( fetchData.visitState );
@@ -432,7 +438,7 @@ public final class FetchingThread extends Thread implements Closeable {
     //	LOGGER.trace("Dequeuing " + it.unimi.di.law.bubing.util.Util.zToString(firstPath) + " after fetching " + fetchData.uri() + "; " + (visitState.isEmpty()
     //    ? "visit state is now empty "
     //    : "first path now is " + it.unimi.di.law.bubing.util.Util.zToString(visitState.firstPath())));
-    visitState.nextFetch = fetchData.endTime + rc.schemeAuthorityDelay; // Regular delay
+    visitState.nextFetch = fetchData.endTime + Math.max(frontier.rc.schemeAuthorityDelay, visitState.crawlDelayMS); // Regular delay
 
     if ( fetchData.robots ) {
       frontier.fetchedRobots.incrementAndGet();
@@ -446,7 +452,9 @@ public final class FetchingThread extends Thread implements Closeable {
       visitState.lastRobotsFetch = fetchData.endTime;
     }
     else {
-      fetchData.visitState.cookies = getCookies( fetchData.uri(), cookieStore, frontier.rc.cookieMaxByteSize );
+      fetchData.visitState.nbFetched ++;
+      // Do NOT Set cookies received in cookieStore in visitState (default is : no cookie, only if required by redirect)
+      // fetchData.visitState.cookies = getCookies( fetchData.uri(), cookieStore, frontier.rc.cookieMaxByteSize );
       frontier.fetchedResources.incrementAndGet();
     }
 
@@ -501,7 +509,7 @@ public final class FetchingThread extends Thread implements Closeable {
       else {
         visitState.lastExceptionClass = null;
         // Regular delay
-        visitState.nextFetch = fetchData.endTime + frontier.rc.schemeAuthorityDelay;
+        visitState.nextFetch = fetchData.endTime + Math.max(frontier.rc.schemeAuthorityDelay, visitState.crawlDelayMS);
         if (LOGGER.isDebugEnabled()) LOGGER.debug("URL " + fetchData.uri() + " killed by " + exceptionClass.getSimpleName());
       }
     }
@@ -525,47 +533,77 @@ public final class FetchingThread extends Thread implements Closeable {
     if (LOGGER.isTraceEnabled()) LOGGER.trace("Processing {}",url);
 
     cookieStore.clear();
-    if ( robots )
-      visitState.robotsFilter = URLRespectsRobots.EMPTY_ROBOTS_FILTER;
-    else
-      storeCookies( visitState, cookieStore );
+    boolean finished = false;
+    int attempt = 0; // number of self-redirect attempts
+    while (!finished && attempt < 2) {
+      attempt ++;
+      if (robots)
+        visitState.robotsFilter = URLRespectsRobots.EMPTY_ROBOTS_FILTER;
+      else
+        storeCookies(visitState, cookieStore);
 
-    try {
-      final RequestConfig requestConfig = robots
-        ? frontier.robotsRequestConfig
-        : frontier.defaultRequestConfig;
-      fetchData.fetch( url, crawlRequest.build(), httpClient, requestConfig, visitState, robots );
-    }
-    catch (Throwable shouldntHappen) {
-      /* This shouldn't really happen--it's a bug that must be reported to the ASF team.
-       * We cannot rely on the internal state of fetchData being OK, so we just discard it
-       * and stop the keepalive download. We must perform some bookkeeping usually
-       * performed by a ParsingThread. */
-      LOGGER.error( "Unexpected exception during fetch of " + url, shouldntHappen );
-      final long endTime = System.currentTimeMillis();
-      visitState.workbenchEntry.nextFetch = endTime + frontier.rc.ipDelay + visitState.workbenchEntry.delay;
-      visitState.nextFetch = endTime + frontier.rc.schemeAuthorityDelay;
-      return false;
-    }
-    finally {
-      if (fetchData.response() != null && fetchData.response().getStatusLine() != null && fetchData.response().getStatusLine().getStatusCode() == 429) {
+      try {
+        final RequestConfig requestConfig = robots
+          ? frontier.robotsRequestConfig
+          : frontier.defaultRequestConfig;
+        fetchData.fetch(url, crawlRequest.build(), httpClient, requestConfig, visitState, robots);
+        // Deal with rate limiting situation
+        if (fetchData.response() != null && fetchData.response().getStatusLine() != null && fetchData.response().getStatusLine().getStatusCode() == 429) {
+          final long endTime = System.currentTimeMillis();
+          visitState.workbenchEntry.nextFetch = endTime + 3 * frontier.rc.ipDelay + 3 * visitState.workbenchEntry.delay;
+          visitState.nextFetch = endTime + 3 * + Math.max(frontier.rc.schemeAuthorityDelay, visitState.crawlDelayMS);
+          if (robots)
+            visitState.forciblyEnqueueRobotsFirst();
+          else
+            visitState.enqueueCrawlRequest(crawlRequest.build().toByteArray());
+
+          LOGGER.info("Received HTTP code 429 for {}, waiting extratime, slow down and retrying later", url.toString());
+          visitState.workbenchEntry.increaseDelay();
+          return false;
+        }
+        // Special case : temporary redirection to itself (
+        if (fetchData.response() != null && fetchData.response().getStatusLine() != null && fetchData.response().getStatusLine().getStatusCode() == 302) {
+          Header locationHeader = fetchData.response().getFirstHeader("Location");
+          if (locationHeader != null && locationHeader.getElements().length == 1) {
+            if (LOGGER.isDebugEnabled())
+              LOGGER.debug("Redirecting 302 {} to Location {}", url.toString(), locationHeader.getElements()[0]);
+            String location = locationHeader.getElements()[0].toString();
+            if (location.equals(url.toString())) {
+              LOGGER.warn("Redirecting {} to itself ({}) : retrying with cookies", url.toString(), location);
+              finished = false;
+              continue; // retry with cookies
+            }
+            // Check if the url is relative
+            URI locationURI = BURL.parse(location);
+            if (!locationURI.isAbsolute())
+              locationURI = url.resolve(locationURI);
+            LOGGER.debug("Redirecting 302 {} to {}", url.toString(), locationURI.toString());
+
+            if (locationURI.equals(url)) {
+              LOGGER.warn("Redirecting {} to itself ({}) : retrying with cookies", url.toString(), locationURI);
+              finished = false;
+              continue; // retry with cookies
+            }
+          }
+        }
+        finished = true;
+      } catch (Throwable shouldntHappen) {
+        /* This shouldn't really happen--it's a bug that must be reported to the ASF team.
+         * We cannot rely on the internal state of fetchData being OK, so we just discard it
+         * and stop the keepalive download. We must perform some bookkeeping usually
+         * performed by a ParsingThread. */
+        LOGGER.error("Unexpected exception during fetch of " + url, shouldntHappen);
         final long endTime = System.currentTimeMillis();
-        visitState.workbenchEntry.nextFetch = endTime + 3*frontier.rc.ipDelay + 3*visitState.workbenchEntry.delay;
-        visitState.nextFetch = endTime + 3*frontier.rc.schemeAuthorityDelay;
-        if (robots)
-          visitState.forciblyEnqueueRobotsFirst();
-        else
-          visitState.enqueueCrawlRequest(crawlRequest.build().toByteArray());
-
-        LOGGER.info("Received HTTP code 429 for {}, waiting extratime, slow down and retrying later", url.toString());
-        visitState.workbenchEntry.increaseDelay();
-
+        visitState.workbenchEntry.nextFetch = endTime + frontier.rc.ipDelay + visitState.workbenchEntry.delay;
+        visitState.nextFetch = endTime + Math.max(frontier.rc.schemeAuthorityDelay, visitState.crawlDelayMS);
         return false;
-      } else {
-        frontier.fetchingCount.incrementAndGet();
-        if (robots)
-          frontier.fetchingRobotsCount.incrementAndGet();
-        frontier.fetchingDurationTotal.addAndGet(fetchData.endTime - fetchData.startTime);
+      } finally {
+        if (finished) {
+          frontier.fetchingCount.incrementAndGet();
+          if (robots)
+            frontier.fetchingRobotsCount.incrementAndGet();
+          frontier.fetchingDurationTotal.addAndGet(fetchData.endTime - fetchData.startTime);
+        }
       }
     }
 

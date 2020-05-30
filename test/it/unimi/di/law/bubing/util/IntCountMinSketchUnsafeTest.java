@@ -2,7 +2,6 @@ package it.unimi.di.law.bubing.util;
 
 import com.google.common.primitives.Longs;
 import it.unimi.dsi.fastutil.io.BinIO;
-import jdk.nashorn.internal.ir.debug.ObjectSizeCalculator;
 import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -57,7 +56,6 @@ public class IntCountMinSketchUnsafeTest {
             }).sum();
         long endRHHSTime = System.nanoTime();
         System.out.println("CMS add total : " + (double)(endRHHSTime-startRHHSTime)/1000000000.0 + "s ; per increment " + (double)(endRHHSTime-startRHHSTime)/count);
-        System.out.println("Estimated CMS object size : " + ObjectSizeCalculator.getObjectSize(cms));
 
         final File temp = File.createTempFile(ConcurrentCountingMap.class.getSimpleName() + "-", "-temp");
         temp.deleteOnExit();

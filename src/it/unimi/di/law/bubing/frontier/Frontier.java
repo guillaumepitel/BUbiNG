@@ -182,7 +182,7 @@ public class Frontier {
 	public static final long MIN_FLUSH_INTERVAL = 10000;
 
 	/** The increase of the front size used by {@link #updateRequestedFrontSize()}. */
-	private static final long FRONT_INCREASE = 1000;
+	private static final long FRONT_INCREASE = 250;
 
 	/** Minimum number of available fetchdata required before we decide to drop one */
 	final AtomicInteger fetchDataCount = new AtomicInteger(0);
@@ -518,15 +518,15 @@ public class Frontier {
 		duplicates = new AtomicLong();
 		numberOfReceivedURLs = new AtomicLong();
 		numberOfSentURLs = new AtomicLong();
-		requiredFrontSize = new AtomicLong(10000);
+		requiredFrontSize = new AtomicLong(1500);
 		fetchingThreadWaits = new AtomicLong();
 		fetchingThreadWaitingTimeSum = new AtomicLong();
 
 		setDefaultRequest();
 		setRobotsRequest();
 
-		quickToSendDiscoveredURLs = new ArrayBlockingQueue<>( 2 * 1024);
-		quickReceivedCrawlRequests = new ArrayBlockingQueue<>( 16 * 1024);
+		quickToSendDiscoveredURLs = new ArrayBlockingQueue<>(  512);
+		quickReceivedCrawlRequests = new ArrayBlockingQueue<>( 4 * 1024);
 
 		fetchInfoSendThread = new FetchInfoSendThread( pulsarManager, quickToSendDiscoveredURLs );
 		dnsThreads = new ObjectArrayList<>();

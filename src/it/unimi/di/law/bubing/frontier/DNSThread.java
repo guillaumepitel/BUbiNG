@@ -78,10 +78,11 @@ public final class DNSThread extends Thread {
 				// If none after one second, try again.
 				if (visitState == null) continue;
 
-				frontier.workingDnsThreads.incrementAndGet();
 				final String host = BURL.hostFromSchemeAndAuthority(visitState.schemeAuthority);
 
 				try {
+					frontier.workingDnsThreads.incrementAndGet();
+
 					// This is the first point in which DNS resolution happens for new hosts.
 					if (LOGGER.isDebugEnabled())
 						LOGGER.debug("Resolving host {} with DNS because of URL {}", host, BURL.fromNormalizedSchemeAuthorityAndPathQuery(visitState.schemeAuthority, HuffmanModel.defaultModel.decompress(visitState.firstPath())));
@@ -151,7 +152,9 @@ public final class DNSThread extends Thread {
 						LOGGER.debug("Visit state " + visitState + " killed by " + UnknownHostException.class.getSimpleName());
 					}
 				}
-				frontier.workingDnsThreads.decrementAndGet();
+				finally {
+					frontier.workingDnsThreads.decrementAndGet();
+				}
 			}
 			catch(Throwable t) {
 				LOGGER.error("Unexpected exception", t);

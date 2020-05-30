@@ -299,7 +299,7 @@ public final class PulsarManager implements AutoCloseable
 
       return client.newConsumer()
         .subscriptionType( SubscriptionType.Failover )
-        .receiverQueueSize(512)
+        .receiverQueueSize(64)
         .maxTotalReceiverQueueSizeAcrossPartitions(4096)
         .acknowledgmentGroupTime( 500, TimeUnit.MILLISECONDS )
         .messageListener( new CrawlRequestsReceiver(frontier,topic) )

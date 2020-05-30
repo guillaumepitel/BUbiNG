@@ -65,9 +65,9 @@ public final class Distributor extends Thread {
 	 * this amount of time has passed (approximately) since the last fetch. */
 	private static final long PURGE_DELAY = TimeUnit.HOURS.toMillis(12);
 	/** We prints low-cost stats at this interval. */
-	private static final long LOW_COST_STATS_INTERVAL = TimeUnit.SECONDS.toMillis(120);
+	private static final long LOW_COST_STATS_INTERVAL = TimeUnit.MINUTES.toMillis(10);
 	/** We prints high-cost stats at this interval. */
-	private static final long HIGH_COST_STATS_INTERVAL = TimeUnit.MINUTES.toMillis(15);
+	private static final long HIGH_COST_STATS_INTERVAL = TimeUnit.MINUTES.toMillis(45);
 	/** We check for visit states to be purged at this interval. */
 	private static final long PURGE_CHECK_INTERVAL = TimeUnit.HOURS.toMillis(2);
 
@@ -197,7 +197,7 @@ public final class Distributor extends Thread {
 
 					if ( frontIsSmall ) {
 						// It is necessary to enrich the workbench picking up URLs from the sieve
-            int toAdd = Math.min( 100, frontier.quickReceivedCrawlRequests.size() );
+            int toAdd = Math.min( 1000, frontier.quickReceivedCrawlRequests.size() );
 						// Note that this might make temporarily the workbench too big by a little bit.
             while ( toAdd > 0 && !frontier.quickReceivedCrawlRequests.isEmpty() ) {
               round = -1;
