@@ -12,6 +12,7 @@ import java.util.Set;
 
 import org.apache.commons.io.input.BOMInputStream;
 import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang.mutable.MutableInt;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,8 +52,23 @@ public class URLRespectsRobots {
 
 	private URLRespectsRobots() {}
 
+	public static class RobotsRules {
+		public char[][] allow;
+		public char[][] disallow;
+
+		public RobotsRules() {
+			allow = new char[0][];
+			disallow = new char[0][];
+		}
+		public RobotsRules(char[][] allow, char[][] disallow) {
+			this.allow = allow;
+			this.disallow = disallow;
+		}
+	}
+
 	/** A singleton empty robots filter. */
-	public final static char[][] EMPTY_ROBOTS_FILTER = new char[0][];
+	public final static RobotsRules EMPTY_ROBOTS_FILTER = new RobotsRules();
+
 
 	public static char[][] toSortedPrefixFreeCharArrays(final Set<String> set) {
 		final int size = set.size();
@@ -75,11 +91,15 @@ public class URLRespectsRobots {
 	 * @param userAgent the string representing the user agent of interest.
 	 * @return an array of character arrays, which are prefixes of the URLs not to follow, in sorted order.
 	 */
-	public static char[][] parseRobotsReader(final Reader content, final String userAgent) throws IOException {
+	public static RobotsRules parseRobotsReader(final Reader content, final String userAgent, final MutableInt crawlDelay) throws IOException {
 		/* The set of disallowed paths specifically aimed at userAgent. */
-		Set<String> set = new ObjectOpenHashSet<>();
+		Set<String> setDisallow = new ObjectOpenHashSet<>();
 		/* The set of disallowed paths specifically aimed at *. */
-		Set<String> setStar = new ObjectOpenHashSet<>();
+		Set<String> setDisallowStar = new ObjectOpenHashSet<>();
+		/* The set of disallowed paths specifically aimed at userAgent. */
+		Set<String> setAllow = new ObjectOpenHashSet<>();
+		/* The set of disallowed paths specifically aimed at *. */
+		Set<String> setAllowStar = new ObjectOpenHashSet<>();
 		/* True if the currently examined record is targetted to us. */
 		boolean doesMatter = false;
 		/* True if we have seen a section targetted to our agent. */
@@ -97,7 +117,10 @@ public class URLRespectsRobots {
 		st.wordChars(33, 255); // All characters may appear
 		st.whitespaceChars(0, 32);
 		st.ordinaryChar('#'); // We must manually simulate comments 8^(
+		st.ordinaryChar(':');
 		st.lowerCaseMode(false);
+		int crawlDelayStar = 0;
+		int ourCrawlDelay = 0;
 
 		while (true) {
 			int lineFirstToken = st.nextToken();
@@ -116,35 +139,78 @@ public class URLRespectsRobots {
 						token = st.nextToken();
 					} while (token != StreamTokenizer.TT_EOL && token != StreamTokenizer.TT_EOF);
 					break;
-
 				// A string
 				case StreamTokenizer.TT_WORD:
-					if (st.sval.equalsIgnoreCase("user-agent:")) {
-						token = st.nextToken();
-						if (token == StreamTokenizer.TT_WORD)
-							if (StringUtils.startsWithIgnoreCase(userAgent, st.sval)) {
-								doesMatter = true;
-								specific = true;
-								starSection = false;
+					if (st.sval.equalsIgnoreCase("crawl-delay")) {
+						token = st.nextToken(); // should be :
+						if (token == ':') {
+							token = st.nextToken();
+							if (token == StreamTokenizer.TT_WORD) {
+
+								try {
+									int cd = Integer.valueOf(st.sval);
+									if (doesMatter && specific)
+										ourCrawlDelay = cd;
+									if (starSection)
+										crawlDelayStar = cd;
+								} catch (NumberFormatException nfe) {
+								}
 							}
-							else if (st.sval.equals("*")) {
-								starSection = true;
-								generic = true;
-							} else starSection = false;
+						}
 						// Ignore the rest of the line
 						while (token != StreamTokenizer.TT_EOL && token != StreamTokenizer.TT_EOF)
 							token = st.nextToken();
-					} else if (st.sval.equalsIgnoreCase("disallow:")) {
+					} else if (st.sval.equalsIgnoreCase("user-agent")) {
 						token = st.nextToken();
-						//System.out.println(st.sval + " " + starSection + " " + set + " " + setStar);
-						if (token == StreamTokenizer.TT_EOL) {
-							if (doesMatter) set.clear();
-							else if (starSection) setStar.clear();
-						} else if (token == StreamTokenizer.TT_WORD) {
-							String disallowed = st.sval;
-							if (disallowed.endsWith("*")) disallowed = disallowed.substring(0, disallowed.length()-1); // Someone (erroneously) uses * to denote any suffix
-							if (doesMatter) set.add(disallowed);
-							else if (starSection) setStar.add(disallowed);
+						if (token == ':') {
+							token = st.nextToken();
+							if (token == StreamTokenizer.TT_WORD)
+								if (StringUtils.startsWithIgnoreCase(userAgent, st.sval)) {
+									doesMatter = true;
+									specific = true;
+									starSection = false;
+								} else if (st.sval.equals("*")) {
+									starSection = true;
+									generic = true;
+								} else starSection = false;
+						}
+						// Ignore the rest of the line
+						while (token != StreamTokenizer.TT_EOL && token != StreamTokenizer.TT_EOF)
+							token = st.nextToken();
+					} else if (st.sval.equalsIgnoreCase("disallow")) {
+						token = st.nextToken();
+						if (token == ':') {
+							token = st.nextToken();
+							//System.out.println(st.sval + " " + starSection + " " + set + " " + setStar);
+							if (token == StreamTokenizer.TT_EOL) {
+								if (doesMatter) setDisallow.clear();
+								else if (starSection) setDisallowStar.clear();
+							} else if (token == StreamTokenizer.TT_WORD) {
+								String disallowed = st.sval;
+								if (disallowed.endsWith("*"))
+									disallowed = disallowed.substring(0, disallowed.length() - 1); // Someone (erroneously) uses * to denote any suffix
+								if (doesMatter) setDisallow.add(disallowed);
+								else if (starSection) setDisallowStar.add(disallowed);
+							}
+						}
+						// Ignore the rest of the line
+						while (token != StreamTokenizer.TT_EOL && token != StreamTokenizer.TT_EOF)
+							token = st.nextToken();
+					} else if (st.sval.equalsIgnoreCase("allow")) {
+						token = st.nextToken();
+						if (token == ':') {
+							token = st.nextToken();
+							//System.out.println(st.sval + " " + starSection + " " + set + " " + setStar);
+							if (token == StreamTokenizer.TT_EOL) {
+								if (doesMatter) setAllow.clear();
+								else if (starSection) setAllowStar.clear();
+							} else if (token == StreamTokenizer.TT_WORD) {
+								String allowed = st.sval;
+								if (allowed.endsWith("*"))
+									allowed = allowed.substring(0, allowed.length() - 1); // Someone (erroneously) uses * to denote any suffix
+								if (doesMatter) setAllow.add(allowed);
+								else if (starSection) setAllowStar.add(allowed);
+							}
 						}
 						// Ignore the rest of the line
 						while (token != StreamTokenizer.TT_EOL && token != StreamTokenizer.TT_EOF)
@@ -157,10 +223,16 @@ public class URLRespectsRobots {
 					if (LOGGER.isTraceEnabled()) LOGGER.trace("Found unknown token type {} in robots.txt", Integer.valueOf(lineFirstToken));
 			}
 		}
+		if (specific)
+			crawlDelay.setValue(ourCrawlDelay > 0 ? ourCrawlDelay:crawlDelayStar);
+		else
+			crawlDelay.setValue(crawlDelayStar);
 
-		if (specific) return toSortedPrefixFreeCharArrays(set); // Some instructions specific to us
-		if (! specific && generic) return toSortedPrefixFreeCharArrays(setStar); // No specific instruction, but some generic ones
-		return toSortedPrefixFreeCharArrays(set);
+		if (specific)
+			return new RobotsRules(toSortedPrefixFreeCharArrays(setAllow),toSortedPrefixFreeCharArrays(setDisallow)); // Some instructions specific to us
+		if (! specific && generic)
+			return new RobotsRules(toSortedPrefixFreeCharArrays(setAllowStar),toSortedPrefixFreeCharArrays(setDisallowStar)); // No specific instruction, but some generic ones
+		return new RobotsRules(toSortedPrefixFreeCharArrays(setAllow),toSortedPrefixFreeCharArrays(setDisallow));
 	}
 
 	/** Parses a <code>robots.txt</code> file contained in a {@link FetchData} and
@@ -174,7 +246,7 @@ public class URLRespectsRobots {
 	 * @return an array of character arrays, which are prefixes of the URLs not to follow, in sorted order,
 	 * or {@code null}
 	 */
-	public static char[][] parseRobotsResponse(final URIResponse robotsResponse, final String userAgent) throws IOException {
+	public static RobotsRules parseRobotsResponse(final URIResponse robotsResponse, final String userAgent, final MutableInt crawlDelay) throws IOException {
 		final int status = robotsResponse.response().getStatusLine().getStatusCode();
 		if (status / 100 != 2) LOGGER.info("Got status " + status + " while fetching robots: URL was " + robotsResponse.uri());
 		if (status / 100 == 4 || status / 100 == 5) return EMPTY_ROBOTS_FILTER; // For status 4xx and 5xx, we consider everything allowed.
@@ -185,8 +257,9 @@ public class URLRespectsRobots {
 		// Skip BOM, if necessary
 		bomInputStream.skip(bomLength);
 		// Parse robots (BOM is ignored, robots are UTF-8, as suggested by https://developers.google.com/search/reference/robots_txt
-		char[][] result = parseRobotsReader(new InputStreamReader(bomInputStream, Charsets.UTF_8), userAgent);
-		if (LOGGER.isDebugEnabled()) LOGGER.debug("Robots for {} successfully got with status {}: {}", robotsResponse.uri(), Integer.valueOf(status), toString(result));
+		RobotsRules result = parseRobotsReader(new InputStreamReader(bomInputStream, Charsets.UTF_8), userAgent, crawlDelay);
+		if (LOGGER.isDebugEnabled()) LOGGER.debug("Robots for {} successfully got with status {}: Allow {} / Disallow {}", robotsResponse.uri(), Integer.valueOf(status),
+			toString(result.allow), toString(result.disallow));
 		return result;
 	}
 
@@ -211,7 +284,7 @@ public class URLRespectsRobots {
 	 * @param url a URL to check against {@code robotsFilter}.
 	 * @return true if {@code url} passes {@code robotsFilter}.
 	 */
-	public static boolean apply(final char[][] robotsFilter, final URI url) {
+	private static boolean apply(final char[][] robotsFilter, final URI url) {
 		if (robotsFilter.length == 0) return true;
 		final String pathQuery = BURL.pathAndQuery(url);
 		int from = 0;
@@ -224,6 +297,18 @@ public class URLRespectsRobots {
 			else return false; // key found (unlikely, but possible)
 		}
 		return from == 0 || doesNotStartsWith(pathQuery, robotsFilter[from-1]);
+	}
+
+
+	/** Checks whether a specified URL passes a specified robots filter.
+	 *
+	 * @param robotsFilter a robot filter.
+	 * @param url a URL to check against {@code robotsFilter}.
+	 * @return true if {@code url} passes {@code robotsFilter}.
+	 */
+	public static boolean apply(final RobotsRules robotsFilter, final URI url) {
+		// To pass, a url can either not match a disallow rule, or match a disallow rule AND match and allow rule.
+		return apply(robotsFilter.disallow, url) || !apply(robotsFilter.allow, url);
 	}
 
 	/** Prints gracefully a robot filter using at most {@value #MAX_TO_STRING_ROBOTS} prefixes.
@@ -244,14 +329,23 @@ public class URLRespectsRobots {
 	}
 
 	public static void main(String arg[]) throws IOException {
-		char[][] robotsResult = URLRespectsRobots.parseRobotsReader(new FileReader(arg[0]), arg[1]);
-		for(char[] a: robotsResult) System.err.println(new String(a));
+		MutableInt crawlDelay = new MutableInt(0);
+		RobotsRules robotsResult = URLRespectsRobots.parseRobotsReader(new FileReader(arg[0]), arg[1], crawlDelay);
+		for(char[] a: robotsResult.allow) System.err.println(new String(a));
+		for(char[] a: robotsResult.disallow) System.err.println(new String(a));
+
 		final FastBufferedReader in = new FastBufferedReader(new InputStreamReader(System.in, Charsets.US_ASCII));
 		final MutableString s = new MutableString();
+		System.out.println("Crawl-Delay : " + crawlDelay.intValue());
+		System.out.println("Please enter urls to test:");
 		while(in.readLine(s) != null) {
 			final URI uri = BURL.parse(s);
-			System.out.println(apply(robotsResult, uri) + "\t" + uri);
+			if (apply(robotsResult,uri))
+				System.out.println("URL " + uri + " allowed");
+			else
+				System.out.println("URL " + uri + " not allowed");
 		}
+		System.out.println("Crawl-Delay : " + crawlDelay.intValue());
 		in.close();
 
 	}
