@@ -55,6 +55,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.CompressionCodecFactory;
 import org.apache.http.HttpHost;
+import org.apache.http.client.config.CookieSpecs;
 import org.apache.http.client.config.RequestConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -413,6 +414,7 @@ public class Frontier {
 			.setContentCompressionEnabled(true)
 			.setProxy(rc.proxyHost.length() > 0 ? new HttpHost(rc.proxyHost, rc.proxyPort) : null)
 			.build();
+		LOGGER.info("Set default request config to {}", defaultRequestConfig.toString());
 	}
 
 	private void setRobotsRequest() {
@@ -422,9 +424,12 @@ public class Frontier {
 			.setConnectionRequestTimeout(rc.connectionTimeout)
 			.setCookieSpec(rc.cookiePolicy)
 			.setRedirectsEnabled(true)
-			.setMaxRedirects(5) // Google's policy
+			.setRelativeRedirectsAllowed(true)
+			.setCircularRedirectsAllowed(true) // allow for cookie-based redirects
+			.setMaxRedirects(10) // 2xGoogle's policy
 			.setProxy(rc.robotProxyHost.length() > 0 ? new HttpHost(rc.robotProxyHost, rc.robotProxyPort) : null)
 			.build();
+		LOGGER.info("Set robots request config to {}", robotsRequestConfig.toString());
 	}
 
 	public void setRequests() {
