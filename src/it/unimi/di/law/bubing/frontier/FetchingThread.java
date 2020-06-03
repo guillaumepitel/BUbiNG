@@ -6,7 +6,7 @@ import java.net.URI;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import javax.net.ssl.SSLContext;
 
@@ -19,6 +19,7 @@ import it.unimi.di.law.bubing.frontier.comm.PulsarHelper;
 import org.apache.http.Header;
 import org.apache.http.client.CookieStore;
 import org.apache.http.client.HttpClient;
+import org.apache.http.client.config.CookieSpecs;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.config.ConnectionConfig;
 import org.apache.http.config.Registry;
@@ -110,14 +111,14 @@ public final class FetchingThread extends Thread implements Closeable {
    */
   private final HttpClient httpClient;
   /**
-   * The fetched HTTP response used by this thread.
-   */
-  private FetchData fetchData;
-  /**
    * The cookie store used by {@link #httpClient}.
    */
   private final BasicCookieStore cookieStore;
 
+  /**
+   * The fetchData objects currently held by this thread
+   */
+  private final ArrayList<FetchData> fetchDataList;
   /**
    * An SSL context that accepts all self-signed certificates.
    */
@@ -252,23 +253,25 @@ public final class FetchingThread extends Thread implements Closeable {
         .setDefaultCookieStore(cookieStore)
         .setDefaultHeaders(ObjectArrayList.wrap(headers))
         .build();
-    fetchData = new FetchData(frontier.rc);
-    frontier.fetchDataCount.incrementAndGet();
+   fetchDataList = new ArrayList<>();
+
   }
 
   @Override
   public void run() {
     try {
       LOGGER.warn( "thread [started]" );
+      createFetchData();
       frontier.runningFetchingThreads.incrementAndGet();
       while ( !stop ) {
         final VisitState visitState = getNextVisitState();
         if ( visitState != null ) {
           frontier.workingFetchingThreads.incrementAndGet(); // decrement is done below or in processFetchData()
-          if (!processVisitState(visitState) ) {
+          Collection<FetchData> fetchDatas = processVisitState(visitState);
+          if (fetchDatas.size() == 0) {
             frontier.workingFetchingThreads.decrementAndGet();
           } else
-            processFetchData();
+            processFetchDatas(fetchDatas);
         }
       }
     }
@@ -286,18 +289,20 @@ public final class FetchingThread extends Thread implements Closeable {
   }
 
   public void close() throws IOException {
-    FetchData fd = fetchData;
-    if (fd != null)
-      fd.close();
+    for (var fd : fetchDataList) {
+      if (fd != null)
+        fd.close();
+    }
   }
 
   /**
    * Causes the {@link FetchData} used by this thread to be {@linkplain FetchData#abort()} (whence, the corresponding connection to be closed).
    */
   public void abort() {
-    FetchData fd = fetchData;
-    if (fd != null)
-      fd.abort();
+    for (var fd : fetchDataList) {
+      if (fd != null)
+        fd.abort();
+    }
   }
 
   private VisitState getNextVisitState() throws InterruptedException {
@@ -322,16 +327,14 @@ public final class FetchingThread extends Thread implements Closeable {
     return visitState;
   }
 
-  private boolean processVisitState( final VisitState visitState ) throws InterruptedException {
+  private Collection<FetchData> processVisitState( final VisitState visitState ) throws InterruptedException {
     if (LOGGER.isTraceEnabled()) LOGGER.trace("Processing VisitState for {}", PulsarHelper.toString(PulsarHelper.schemeAuthority(visitState.schemeAuthority).build()));
     final MsgURL.Key schemeAuthorityProto = PulsarHelper.schemeAuthority(visitState.schemeAuthority).build();
 
     while ( !stop && !visitState.isEmpty() ) {
       frontier.rc.ensureNotPaused();
 
-      if ( fetchData == null )
-        fetchData = getAvailableFetchData(); // block until success or stop requested
-      if ( fetchData == null )
+      if ( stop )
         continue; // stop requested
 
       final byte[] zpath = visitState.dequeue(); // contains a zPathQuery
@@ -356,8 +359,9 @@ public final class FetchingThread extends Thread implements Closeable {
       }
 
       if ( isRobots ) {
-        if ( tryFetch(visitState,crawlRequest,url,true) ) // FIXME: may return true even if fetch has failed...
-          return true; // process fetch data
+        Collection<FetchData> fetchDatas = tryFetch(visitState,crawlRequest,url,true);
+        if ( fetchDatas.size() > 0 ) // FIXME: may return true even if fetch has failed...
+          return fetchDatas; // process fetch data
         break; // skip to next SchemeAuthority
       }
 
@@ -378,32 +382,36 @@ public final class FetchingThread extends Thread implements Closeable {
 
       if ( RuntimeConfiguration.FETCH_ROBOTS && visitState.robotsFilter == null )
         LOGGER.warn( "Null robots filter for " + it.unimi.di.law.bubing.util.Util.toString(visitState.schemeAuthority) );
-
-      if ( tryFetch(visitState,crawlRequest,url,false) ) // FIXME: may return true even if fetch has failed...
-        return true; // process fetch data
+      Collection<FetchData> fetchDatas = tryFetch(visitState,crawlRequest,url,false);// FIXME: may return true even if fetch has failed...
+      if (fetchDatas.size() > 0)
+        return fetchDatas; // process fetch data
       break; // skip to next SchemeAuthority
     }
 
-    return false; // skip to next SchemeAuthority
+    return Collections.emptyList(); // skip to next SchemeAuthority
   }
 
 
-  private void processFetchData() {
-    if ( checkAndUpdateFetchData() ) {
+  private void processFetchDatas(Collection<FetchData> fetchDatas) {
+    fetchDatas.forEach(fd -> processFetchData(fd));
+  }
+
+  private void processFetchData(FetchData fetchData) {
+  if ( checkAndUpdateFetchData(fetchData) ) {
       frontier.workingFetchingThreads.decrementAndGet();
       frontier.results.add( fetchData );
-      fetchData = null;
     }
     else {
       frontier.workingFetchingThreads.decrementAndGet();
       if ( !fetchData.robots ) // FIXME: don't send fetchInfo for robots.txt
-        frontier.enqueue(fetchInfoFailed());
+        frontier.enqueue(fetchInfoFailed(fetchData));
       frontier.done.add( fetchData.visitState );
+      frontier.availableFetchData.add(fetchData);
     }
   }
 
 
-  private MsgCrawler.FetchInfo fetchInfoFailed() {
+  private MsgCrawler.FetchInfo fetchInfoFailed(FetchData fetchData) {
     MsgCrawler.FetchInfo.Builder fetchInfoBuilder = MsgCrawler.FetchInfo.newBuilder();
     fetchInfoBuilder
       .setUrlKey(fetchData.getCrawlRequest().getUrlKey())
@@ -418,7 +426,7 @@ public final class FetchingThread extends Thread implements Closeable {
     return fetchInfoBuilder.build();
   }
 
-  private boolean checkAndUpdateFetchData() {
+  private boolean checkAndUpdateFetchData(FetchData fetchData) {
     final RuntimeConfiguration rc = frontier.rc;
     final VisitState visitState = fetchData.visitState;
 
@@ -430,7 +438,7 @@ public final class FetchingThread extends Thread implements Closeable {
       ipDelay = Math.max(ipDelay, (long)(rc.ipDelay * rc.ipDelayFactor * knownCount * entrySize / (entrySize + 1.)));
     visitState.workbenchEntry.nextFetch = fetchData.endTime + (long)(ipDelay + visitState.workbenchEntry.delay);
 
-    if ( !checkFetchDataException() )
+    if ( !checkFetchDataException(fetchData) )
       return false; // don't parse
 
     //final byte[] firstPath = visitState.dequeue();
@@ -461,7 +469,7 @@ public final class FetchingThread extends Thread implements Closeable {
     return true; // do parse
   }
 
-  private boolean checkFetchDataException() {  // FIXME: see if this can be done by FetchingThread
+  private boolean checkFetchDataException(FetchData fetchData) {  // FIXME: see if this can be done by FetchingThread
     final VisitState visitState = fetchData.visitState;
 
     if ( fetchData.exception == null ) {
@@ -517,6 +525,20 @@ public final class FetchingThread extends Thread implements Closeable {
     return false;
   }
 
+  private void createFetchData() throws IOException, NoSuchAlgorithmException {
+    frontier.availableFetchData.add(new FetchData(frontier.rc));
+    frontier.fetchDataCount.incrementAndGet();
+  }
+
+
+  private FetchData getOrCreateFetchData() throws InterruptedException, IOException, NoSuchAlgorithmException {
+    FetchData fetchData = frontier.availableFetchData.poll();
+    if (fetchData == null)
+      fetchData = new FetchData(frontier.rc);
+    fetchDataList.add(fetchData);
+    return fetchData;
+  }
+
   private FetchData getAvailableFetchData() throws InterruptedException {
     frontier.rc.ensureNotPaused();
     FetchData fetchData;
@@ -526,16 +548,27 @@ public final class FetchingThread extends Thread implements Closeable {
       Thread.sleep(newSleep);
       frontier.rc.ensureNotPaused();
     }
+    fetchDataList.add(fetchData);
     return fetchData;
   }
 
-  private boolean tryFetch( final VisitState visitState, final MsgFrontier.CrawlRequest.Builder crawlRequest, final URI url, final boolean robots ) {
+  private void releaseFetchDatas() {
+   fetchDataList.forEach(fd -> frontier.availableFetchData.add(fd));
+   fetchDataList.clear();
+  }
+
+  private Collection<FetchData> tryFetch( final VisitState visitState, final MsgFrontier.CrawlRequest.Builder crawlRequest, final URI url, final boolean robots ) throws InterruptedException {
     if (LOGGER.isTraceEnabled()) LOGGER.trace("Processing {}",url);
 
     cookieStore.clear();
     boolean finished = false;
-    int attempt = 0; // number of self-redirect attempts
-    while (!finished && attempt < 2) {
+    int attempt = 0; // number of redirect attempts
+    HashMap<URI, FetchData> fetchResults = new HashMap<URI,FetchData>(5);
+    FetchData currentFetchData = getAvailableFetchData();
+
+    URI currentURI = url;
+
+    while (!finished && attempt < 10) {
       attempt ++;
       if (robots)
         visitState.robotsFilter = URLRespectsRobots.EMPTY_ROBOTS_FILTER;
@@ -546,9 +579,13 @@ public final class FetchingThread extends Thread implements Closeable {
         final RequestConfig requestConfig = robots
           ? frontier.robotsRequestConfig
           : frontier.defaultRequestConfig;
-        fetchData.fetch(url, crawlRequest.build(), httpClient, requestConfig, visitState, robots);
+        currentFetchData.fetch(currentURI, crawlRequest.build(), httpClient, requestConfig, visitState, robots);
+        fetchResults.put(currentURI, currentFetchData);
+
         // Deal with rate limiting situation
-        if (fetchData.response() != null && fetchData.response().getStatusLine() != null && fetchData.response().getStatusLine().getStatusCode() == 429) {
+        if (currentFetchData.response() != null
+          && currentFetchData.response().getStatusLine() != null
+          && currentFetchData.response().getStatusLine().getStatusCode() == 429) {
           final long endTime = System.currentTimeMillis();
           visitState.workbenchEntry.nextFetch = endTime + 3 * frontier.rc.ipDelay + 3 * visitState.workbenchEntry.delay;
           visitState.nextFetch = endTime + 3 * + Math.max(frontier.rc.schemeAuthorityDelay, visitState.crawlDelayMS);
@@ -557,66 +594,84 @@ public final class FetchingThread extends Thread implements Closeable {
           else
             visitState.enqueueCrawlRequest(crawlRequest.build().toByteArray());
 
-          LOGGER.info("Received HTTP code 429 for {}, waiting extratime, slow down and retrying later", url.toString());
+          LOGGER.info("Received HTTP code 429 for {}, waiting extratime, slow down and retrying later", currentURI.toString());
           visitState.workbenchEntry.increaseDelay();
-          return false;
+          // If this happens during a redirect cycle, we must release the stolen fetchData
+          releaseFetchDatas();
+          return Collections.emptyList();
         }
-        // Special case : temporary redirection to itself (
-        if (fetchData.response() != null && fetchData.response().getStatusLine() != null && fetchData.response().getStatusLine().getStatusCode() == 302) {
-          Header locationHeader = fetchData.response().getFirstHeader("Location");
+        // Deal with redirections
+        if (currentFetchData.response() != null
+          && currentFetchData.response().getStatusLine() != null
+          && currentFetchData.response().getStatusLine().getStatusCode()/100 == 3) {
+          Header locationHeader = currentFetchData.response().getFirstHeader("Location");
           if (locationHeader != null && locationHeader.getElements().length == 1) {
-            if (LOGGER.isDebugEnabled())
-              LOGGER.debug("Redirecting 302 {} to Location {}", url.toString(), locationHeader.getElements()[0]);
             String location = locationHeader.getElements()[0].toString();
-            if (location.equals(url.toString())) {
-              LOGGER.warn("Redirecting {} to itself ({}) : retrying with cookies", url.toString(), location);
-              finished = false;
-              continue; // retry with cookies
-            }
             // Check if the url is relative
             URI locationURI = BURL.parse(location);
             if (!locationURI.isAbsolute())
-              locationURI = url.resolve(locationURI);
-            LOGGER.debug("Redirecting 302 {} to {}", url.toString(), locationURI.toString());
+              locationURI = currentURI.resolve(locationURI);
 
-            if (locationURI.equals(url)) {
-              LOGGER.warn("Redirecting {} to itself ({}) : retrying with cookies", url.toString(), locationURI);
+            if (locationURI.equals(currentURI)) {
+              LOGGER.warn("Redirecting {} to itself ({}) : retrying with cookies", currentURI.toString(), locationURI);
               finished = false;
+              // the currentFetchData should be reused
               continue; // retry with cookies
+             } else {
+              LOGGER.warn("Redirecting {} to {} : continue with cookies", currentURI.toString(), locationURI);
+              if (LOGGER.isDebugEnabled())
+                LOGGER.debug(cookieStore.toString());
+              currentURI = locationURI;
+              if (fetchResults.containsKey(currentURI)) // If there is a loop in the redirects
+                currentFetchData = fetchResults.get(currentURI);
+              else
+                currentFetchData = getOrCreateFetchData();
+              finished = false;
+              continue;
             }
           }
         }
         finished = true;
-      } catch (Throwable shouldntHappen) {
+      } catch (InterruptedException e) {
+        throw e;
+      }
+      catch (Throwable shouldntHappen) {
         /* This shouldn't really happen--it's a bug that must be reported to the ASF team.
          * We cannot rely on the internal state of fetchData being OK, so we just discard it
          * and stop the keepalive download. We must perform some bookkeeping usually
          * performed by a ParsingThread. */
-        LOGGER.error("Unexpected exception during fetch of " + url, shouldntHappen);
+        LOGGER.error("Unexpected exception during fetch of " + currentURI, shouldntHappen);
         final long endTime = System.currentTimeMillis();
         visitState.workbenchEntry.nextFetch = endTime + frontier.rc.ipDelay + visitState.workbenchEntry.delay;
         visitState.nextFetch = endTime + Math.max(frontier.rc.schemeAuthorityDelay, visitState.crawlDelayMS);
-        return false;
+        releaseFetchDatas();
+        return Collections.emptyList();
       } finally {
         if (finished) {
           frontier.fetchingCount.incrementAndGet();
           if (robots)
             frontier.fetchingRobotsCount.incrementAndGet();
-          frontier.fetchingDurationTotal.addAndGet(fetchData.endTime - fetchData.startTime);
+          frontier.fetchingDurationTotal.addAndGet(currentFetchData.endTime - currentFetchData.startTime);
         }
       }
     }
+    fetchResults.forEach( (u,fd) -> {
+        if (fd.exception != null && (
+          fd.exception instanceof java.net.SocketException
+            || fd.exception instanceof java.net.SocketTimeoutException
+            || fd.exception instanceof org.apache.http.conn.ConnectTimeoutException))
+          frontier.fetchingTimeoutCount.incrementAndGet();
+      });
+    fetchResults.forEach( (u,fd) -> {
+      if (LOGGER.isTraceEnabled())
+        LOGGER.trace("Fetched {} in {} ms", u.toString(), fd.endTime - fd.startTime);
+      frontier.speedDist.incrementAndGet(Math.min(frontier.speedDist.length() - 1, Fast.mostSignificantBit(8 * fd.length() / (1 + fd.endTime - fd.startTime)) + 1));
+      frontier.transferredBytes.addAndGet(fd.length());
+    });
 
-    if (fetchData.exception != null && (
-        fetchData.exception instanceof java.net.SocketException
-            || fetchData.exception instanceof java.net.SocketTimeoutException
-            || fetchData.exception instanceof org.apache.http.conn.ConnectTimeoutException))
-      frontier.fetchingTimeoutCount.incrementAndGet();
-
-    if (LOGGER.isTraceEnabled()) LOGGER.trace("Fetched {} in {} ms", url.toString(), fetchData.endTime - fetchData.startTime);
-    frontier.speedDist.incrementAndGet(Math.min(frontier.speedDist.length() - 1, Fast.mostSignificantBit(8 * fetchData.length() / (1 + fetchData.endTime - fetchData.startTime)) + 1));
-    frontier.transferredBytes.addAndGet(fetchData.length());
-
-    return true;
+    if (LOGGER.isDebugEnabled() && fetchResults.size() > 1) {
+      fetchResults.forEach( (u,fd) -> LOGGER.debug("Fetched {} : {}", u, fd.toString()));
+    }
+    return fetchResults.values();
   }
 }
