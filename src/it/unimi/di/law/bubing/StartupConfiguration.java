@@ -321,6 +321,9 @@ public class StartupConfiguration {
 	/** The User Agent header used for HTTP requests. */
 	public String userAgent;
 
+	/** The User Agent Id used for robots.txt. */
+	public String userAgentId;
+
 	/** The From header used for HTTP requests. It can be empty, in which case no <code>From</code> header will be emitted. */
 	@OptionalSpecification(value="")
 	public String userAgentFrom;
