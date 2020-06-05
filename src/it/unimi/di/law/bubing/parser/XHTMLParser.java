@@ -123,6 +123,7 @@ public final class XHTMLParser implements Parser<Void>
     pageInfo.extractFromMetas( httpResponse );
     pageInfo.extractFromHtml( httpResponse, buffer );
 
+    updateDigestForRedirection( httpResponse );
     final List<HTMLLink> allLinks = new ArrayList<>();
     allLinks.addAll( pageInfo.getHeaderLinks() );
     allLinks.addAll( pageInfo.getRedirectLinks() );
