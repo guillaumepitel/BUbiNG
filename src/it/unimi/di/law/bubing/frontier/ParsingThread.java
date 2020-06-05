@@ -384,7 +384,7 @@ public class ParsingThread extends Thread {
       frontier.parsingRobotsCount.incrementAndGet();
       frontier.robotsWarcParallelOutputStream.get().write(new HttpResponseWarcRecord(fetchData.uri(), fetchData.response()));
       MutableInt crawlDelay = new MutableInt(0);
-      if ((visitState.robotsFilter = URLRespectsRobots.parseRobotsResponse(fetchData, rc.userAgent, crawlDelay)) == null) {
+      if ((visitState.robotsFilter = URLRespectsRobots.parseRobotsResponse(fetchData, rc.userAgentId, crawlDelay)) == null) {
         // We go on getting/creating a workbench entry only if we have robots permissions.
         visitState.schedulePurge();
         LOGGER.warn("Visit state " + visitState + " killed by null robots.txt");

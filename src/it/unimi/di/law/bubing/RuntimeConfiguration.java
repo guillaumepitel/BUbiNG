@@ -213,6 +213,9 @@ public class RuntimeConfiguration {
 	/** @see StartupConfiguration#userAgent */
 	public final String userAgent;
 
+	/** @see StartupConfiguration#userAgentId */
+	public final String userAgentId;
+
 	/** @see StartupConfiguration#userAgentFrom */
 	public final String userAgentFrom;
 
@@ -594,6 +597,7 @@ public class RuntimeConfiguration {
 			cookiePolicy = startupConfiguration.cookiePolicy;
 			cookieMaxByteSize = startupConfiguration.cookieMaxByteSize;
 			userAgent = startupConfiguration.userAgent;
+			userAgentId = startupConfiguration.userAgentId;
 			userAgentFrom = startupConfiguration.userAgentFrom;
 			robotsExpiration = startupConfiguration.robotsExpiration;
 			acceptAllCertificates = startupConfiguration.acceptAllCertificates;
