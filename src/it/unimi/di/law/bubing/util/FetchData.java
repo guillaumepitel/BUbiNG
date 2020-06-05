@@ -34,9 +34,11 @@ import java.net.InetAddress;
 import java.net.URI;
 import java.nio.channels.ClosedChannelException;
 import java.security.NoSuchAlgorithmException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Queue;
+import java.util.stream.Collectors;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.mutable.MutableLong;
@@ -50,6 +52,7 @@ import org.apache.http.client.HttpClient;
 import org.apache.http.client.ResponseHandler;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.concurrent.FutureCallback;
 import org.apache.http.entity.BasicHttpEntity;
 import org.apache.http.message.BasicHeader;
@@ -189,6 +192,9 @@ public class FetchData implements URIResponse, Closeable {
 
 	/** The request used by this response. */
 	private final HttpGet httpGet;
+
+	/** The HttpClientContext of this fetch */
+	private HttpClientContext httpClientContext;
 
 	/** If true, this istance has been enqueued to the list of results and we are waiting
 	 * for the signal of the {@link ParsingThread} that is analyzing it. */
@@ -359,8 +365,10 @@ public class FetchData implements URIResponse, Closeable {
 
       httpGet.setURI(url);
 
-      if (requestConfig != null)
-        httpGet.setConfig(requestConfig);
+      if (requestConfig != null) {
+				httpGet.setConfig(requestConfig);
+			}
+			httpClientContext = HttpClientContext.create();
 			MutableLong mutableFirstByteTime = new MutableLong();
 			mutableFirstByteTime.setValue(startTime);
       httpClient.execute( httpHost, httpGet, new ResponseHandler<Void>() {
@@ -382,7 +390,11 @@ public class FetchData implements URIResponse, Closeable {
           }
           return null;
         }
-      } );
+      }, httpClientContext );
+
+      if (httpClientContext.getRedirectLocations() != null && httpClientContext.getRedirectLocations().size() > 0)
+      	LOGGER.info("Redirection chain : {}", String.join(" -> ",
+					httpClientContext.getRedirectLocations().stream().map(Object::toString).collect(Collectors.toList())));
 
       response.setEntity(wrappedEntity);
     }
@@ -396,6 +408,20 @@ public class FetchData implements URIResponse, Closeable {
       httpGet.reset(); // Release resources.
     }
   }
+
+	public boolean hasRedirects() {
+		return (httpClientContext != null &&
+			httpClientContext.getRedirectLocations() != null &&
+			httpClientContext.getRedirectLocations().size() > 0);
+	}
+
+  public URI getTerminalURI() {
+		if (httpClientContext != null &&
+		httpClientContext.getRedirectLocations() != null &&
+		httpClientContext.getRedirectLocations().size() > 0)
+			return httpClientContext.getRedirectLocations().get(httpClientContext.getRedirectLocations().size() - 1);
+		return this.url;
+	}
 
 	/**
 	 * Set the digest with a given value

@@ -397,11 +397,26 @@ public class Frontier {
 	public volatile long workbenchSizeInPathQueries;
 	/** The default configuration for a non-<code>robots.txt</code> request. */
 	public RequestConfig defaultRequestConfig;
+	/** The configuration for a no redirect request. */
+	public RequestConfig noRedirectRequestConfig;
 	/** The default configuration for a <code>robots.txt</code> request. */
 	public RequestConfig robotsRequestConfig;
 
 	/** The global instance for the text classifier */
 	public final TextClassifier textClassifier;
+
+	private void setNoRedirectRequest() {
+		noRedirectRequestConfig = RequestConfig.custom()
+			.setSocketTimeout(rc.socketTimeout)
+			.setConnectTimeout(rc.connectionTimeout)
+			.setConnectionRequestTimeout(rc.connectionTimeout)
+			.setCookieSpec(rc.cookiePolicy)
+			.setRedirectsEnabled(false)
+			.setContentCompressionEnabled(true)
+			.setProxy(rc.proxyHost.length() > 0 ? new HttpHost(rc.proxyHost, rc.proxyPort) : null)
+			.build();
+		LOGGER.info("Set default request config to {}", defaultRequestConfig.toString());
+	}
 
 	private void setDefaultRequest() {
 		defaultRequestConfig = RequestConfig.custom()
@@ -409,7 +424,10 @@ public class Frontier {
 			.setConnectTimeout(rc.connectionTimeout)
 			.setConnectionRequestTimeout(rc.connectionTimeout)
 			.setCookieSpec(rc.cookiePolicy)
-			.setRedirectsEnabled(false)
+			.setRedirectsEnabled(true)
+			.setRelativeRedirectsAllowed(true)
+			.setCircularRedirectsAllowed(true) // allow for cookie-based redirects
+			.setMaxRedirects(10) // 2xGoogle's policy
 			.setContentCompressionEnabled(true)
 			.setProxy(rc.proxyHost.length() > 0 ? new HttpHost(rc.proxyHost, rc.proxyPort) : null)
 			.build();
@@ -434,6 +452,7 @@ public class Frontier {
 	public void setRequests() {
 		setDefaultRequest();
 		setRobotsRequest();
+		setNoRedirectRequest();
 	}
 
 	/** Creates the frontier.
@@ -528,7 +547,7 @@ public class Frontier {
 
 		setDefaultRequest();
 		setRobotsRequest();
-
+		setNoRedirectRequest();
 		quickToSendDiscoveredURLs = new ArrayBlockingQueue<>(  512);
 		quickReceivedCrawlRequests = new ArrayBlockingQueue<>( 4 * 1024);
 

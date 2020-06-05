@@ -535,7 +535,7 @@ public final class FetchingThread extends Thread implements Closeable {
     cookieStore.clear();
     boolean finished = false;
     int attempt = 0; // number of self-redirect attempts
-    while (!finished && attempt < 2) {
+    while (!finished && attempt < 2) { // first attempt with redirects enabled. If terminal URI is != requestedUri, then retry without redirects
       attempt ++;
       if (robots)
         visitState.robotsFilter = URLRespectsRobots.EMPTY_ROBOTS_FILTER;
@@ -545,7 +545,7 @@ public final class FetchingThread extends Thread implements Closeable {
       try {
         final RequestConfig requestConfig = robots
           ? frontier.robotsRequestConfig
-          : frontier.defaultRequestConfig;
+          : ((attempt == 1) ? frontier.defaultRequestConfig : frontier.noRedirectRequestConfig);
         fetchData.fetch(url, crawlRequest.build(), httpClient, requestConfig, visitState, robots);
         // Deal with rate limiting situation
         if (fetchData.response() != null && fetchData.response().getStatusLine() != null && fetchData.response().getStatusLine().getStatusCode() == 429) {
@@ -561,30 +561,11 @@ public final class FetchingThread extends Thread implements Closeable {
           visitState.workbenchEntry.increaseDelay();
           return false;
         }
-        // Special case : temporary redirection to itself (
-        if (fetchData.response() != null && fetchData.response().getStatusLine() != null && fetchData.response().getStatusLine().getStatusCode() == 302) {
-          Header locationHeader = fetchData.response().getFirstHeader("Location");
-          if (locationHeader != null && locationHeader.getElements().length == 1) {
-            if (LOGGER.isDebugEnabled())
-              LOGGER.debug("Redirecting 302 {} to Location {}", url.toString(), locationHeader.getElements()[0]);
-            String location = locationHeader.getElements()[0].toString();
-            if (location.equals(url.toString())) {
-              LOGGER.warn("Redirecting {} to itself ({}) : retrying with cookies", url.toString(), location);
-              finished = false;
-              continue; // retry with cookies
-            }
-            // Check if the url is relative
-            URI locationURI = BURL.parse(location);
-            if (!locationURI.isAbsolute())
-              locationURI = url.resolve(locationURI);
-            LOGGER.debug("Redirecting 302 {} to {}", url.toString(), locationURI.toString());
-
-            if (locationURI.equals(url)) {
-              LOGGER.warn("Redirecting {} to itself ({}) : retrying with cookies", url.toString(), locationURI);
-              finished = false;
-              continue; // retry with cookies
-            }
-          }
+        // Special case redirected to another url
+        if (attempt == 1 && fetchData.hasRedirects() &&  !fetchData.getTerminalURI().equals(fetchData.uri())) {
+          LOGGER.debug("Redirecting {} to ({}) : retrying without redirection to get first hop", url.toString(), fetchData.getTerminalURI());
+          finished = false;
+          continue; // retry with cookies
         }
         finished = true;
       } catch (Throwable shouldntHappen) {
