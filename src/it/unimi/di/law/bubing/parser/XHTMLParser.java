@@ -1,6 +1,7 @@
 package it.unimi.di.law.bubing.parser;
 
 import com.kohlschutter.boilerpipe.extractors.ArticleExtractor;
+import com.kohlschutter.boilerpipe.extractors.KeepEverythingExtractor;
 import it.unimi.di.law.bubing.parser.html.*;
 import it.unimi.di.law.bubing.util.BURL;
 import it.unimi.di.law.warc.filters.URIResponse;
@@ -69,7 +70,7 @@ public final class XHTMLParser implements Parser<Void>
 
     final HtmlDigestContentHandler digestContentHandler = new HtmlDigestContentHandler( digestAppendable );
     final HtmlPureTextContentHandler pureTextContentHandler = new HtmlPureTextContentHandler( pureTextAppendable );
-    final HtmlBoilerpipeHandler boilerpipeHandler = new HtmlBoilerpipeHandler( ArticleExtractor.INSTANCE, MAX_BODY_LENGTH );
+    final HtmlBoilerpipeHandler boilerpipeHandler = new HtmlBoilerpipeHandler( KeepEverythingExtractor.INSTANCE, MAX_BODY_LENGTH );
     final ContentHandler htmlContentHandler = new HtmlTeeContentHandler( digestContentHandler, pureTextContentHandler, boilerpipeHandler );
     final LinksHandler linksHandler = new LinksHandler( pageInfo.getLinks(), MAX_ANCHOR_TEXT_LENGTH );
     final XhtmlContentHandler xhtmlContentHandler = new XhtmlContentHandler( metadata, htmlContentHandler, linksHandler );
