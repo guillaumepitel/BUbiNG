@@ -1,16 +1,13 @@
 package it.unimi.di.law.bubing.parser;
 
+import com.exensa.wdl.protobuf.crawler.MsgCrawler;
+import it.unimi.di.law.warc.filters.Filter;
+import it.unimi.di.law.warc.filters.URIResponse;
+import it.unimi.dsi.lang.FlyweightPrototype;
+import org.apache.http.HttpResponse;
+
 import java.io.IOException;
 import java.net.URI;
-import java.nio.charset.Charset;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Locale;
-
-import it.unimi.di.law.bubing.util.detection.CharsetDetectionInfo;
-import it.unimi.di.law.bubing.util.detection.LanguageDetectionInfo;
-import org.apache.http.HttpResponse;
-import com.exensa.wdl.protobuf.crawler.MsgCrawler;
 
 /*
  * Copyright (C) 2004-2017 Paolo Boldi, Massimo Santini, and Sebastiano Vigna
@@ -27,11 +24,6 @@ import com.exensa.wdl.protobuf.crawler.MsgCrawler;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-import it.unimi.di.law.warc.filters.Filter;
-import it.unimi.di.law.warc.filters.URIResponse;
-import it.unimi.dsi.fastutil.objects.ObjectSets;
-import it.unimi.dsi.lang.FlyweightPrototype;
 
 // RELEASE-STATUS: DIST
 

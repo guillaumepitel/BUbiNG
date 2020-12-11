@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang.mutable.MutableLong;
 import org.junit.Test;
 
 public class InspectableCachedHttpEntityTest {
@@ -42,7 +43,7 @@ public class InspectableCachedHttpEntityTest {
 		final InspectableFileCachedInputStream inputStream = new InspectableFileCachedInputStream();
 		final InspectableCachedHttpEntity wrappedEntity = new InspectableCachedHttpEntity(inputStream);
 		wrappedEntity.setEntity(mockResponse.getEntity());
-		wrappedEntity.copyContent(Long.MAX_VALUE, System.currentTimeMillis(), Long.MAX_VALUE, 0);
+		wrappedEntity.copyContent(Long.MAX_VALUE, System.currentTimeMillis(), Long.MAX_VALUE, 0, Long.MAX_VALUE, new MutableLong(0));
 		assertEquals(mockResponse.getMockContent(), IOUtils.toString(wrappedEntity.getContent(), StandardCharsets.ISO_8859_1));
 		inputStream.close();
 	}

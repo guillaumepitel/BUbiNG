@@ -21,12 +21,11 @@ package it.unimi.di.law.warc.io;
 import it.unimi.di.law.warc.io.gzarc.GZIPArchive;
 import it.unimi.di.law.warc.io.gzarc.GZIPArchiveReader;
 import it.unimi.di.law.warc.records.WarcRecord;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class CompressedWarcReader extends AbstractWarcReader {
 	private final static Logger LOGGER = LoggerFactory.getLogger(CompressedWarcReader.class);

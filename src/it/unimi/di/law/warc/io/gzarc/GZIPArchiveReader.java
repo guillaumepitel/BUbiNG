@@ -16,6 +16,13 @@ package it.unimi.di.law.warc.io.gzarc;
  * limitations under the License.
  */
 
+import com.google.common.io.ByteStreams;
+import com.google.common.io.CountingInputStream;
+import it.unimi.dsi.fastutil.io.FastByteArrayInputStream;
+import it.unimi.dsi.fastutil.io.RepositionableStream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
@@ -23,15 +30,6 @@ import java.util.zip.CRC32;
 import java.util.zip.CheckedInputStream;
 import java.util.zip.Inflater;
 import java.util.zip.InflaterInputStream;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.io.ByteStreams;
-import com.google.common.io.CountingInputStream;
-
-import it.unimi.dsi.fastutil.io.FastByteArrayInputStream;
-import it.unimi.dsi.fastutil.io.RepositionableStream;
 
 // RELEASE-STATUS: DIST
 

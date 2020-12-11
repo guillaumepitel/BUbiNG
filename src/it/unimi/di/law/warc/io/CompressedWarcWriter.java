@@ -22,12 +22,11 @@ import it.unimi.di.law.warc.io.gzarc.GZIPArchive;
 import it.unimi.di.law.warc.io.gzarc.GZIPArchiveWriter;
 import it.unimi.di.law.warc.records.WarcRecord;
 import it.unimi.di.law.warc.util.ByteArraySessionOutputBuffer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.OutputStream;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class CompressedWarcWriter implements WarcWriter {
 

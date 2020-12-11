@@ -1,6 +1,27 @@
 package it.unimi.di.law.bubing;
 
-import java.io.FileInputStream;
+import com.martiansoftware.jsap.*;
+import it.unimi.di.law.bubing.frontier.Frontier;
+import it.unimi.di.law.bubing.frontier.comm.PulsarManager;
+import it.unimi.di.law.bubing.util.FetchData;
+import it.unimi.di.law.bubing.util.Link;
+import it.unimi.di.law.warc.filters.URIResponse;
+import it.unimi.di.law.warc.filters.parser.FilterParser;
+import it.unimi.di.law.warc.filters.parser.ParseException;
+import org.apache.commons.configuration.BaseConfiguration;
+import org.apache.commons.configuration.ConfigurationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.softee.management.annotation.Description;
+import org.softee.management.annotation.MBean;
+import org.softee.management.annotation.ManagedAttribute;
+import org.softee.management.annotation.ManagedOperation;
+import org.softee.management.exception.ManagementException;
+import org.softee.management.helper.MBeanRegistration;
+import org.xbill.DNS.Lookup;
+
+import javax.management.ObjectName;
+import javax.management.remote.JMXServiceURL;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -11,32 +32,8 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.security.NoSuchAlgorithmException;
-import java.util.Arrays;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.time.Duration;
 import java.util.concurrent.locks.Lock;
-
-import it.unimi.di.law.bubing.frontier.*;
-import it.unimi.di.law.bubing.frontier.comm.PulsarManager;
-import it.unimi.di.law.bubing.util.FetchData;
-import org.apache.commons.configuration.BaseConfiguration;
-import org.apache.commons.configuration.ConfigurationException;
-import org.jgroups.JChannel;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.softee.management.annotation.Description;
-import org.softee.management.annotation.MBean;
-import org.softee.management.annotation.ManagedAttribute;
-import org.softee.management.annotation.ManagedOperation;
-
-import com.martiansoftware.jsap.FlaggedOption;
-import com.martiansoftware.jsap.JSAP;
-import com.martiansoftware.jsap.JSAPResult;
-import com.martiansoftware.jsap.Parameter;
-import com.martiansoftware.jsap.SimpleJSAP;
-import com.martiansoftware.jsap.Switch;
-import com.martiansoftware.jsap.UnflaggedOption;
-
-
 
 /*
  * Copyright (C) 2012-2017 Paolo Boldi, Massimo Santini, and Sebastiano Vigna
@@ -54,35 +51,16 @@ import com.martiansoftware.jsap.UnflaggedOption;
  * limitations under the License.
  */
 
-
-import it.unimi.di.law.bubing.util.BURL;
-import it.unimi.di.law.bubing.util.BubingJob;
-import it.unimi.di.law.bubing.util.Link;
-import it.unimi.di.law.warc.filters.URIResponse;
-import it.unimi.di.law.warc.filters.parser.FilterParser;
-import it.unimi.di.law.warc.filters.parser.ParseException;
-import it.unimi.dsi.fastutil.bytes.ByteArrayList;
-import it.unimi.dsi.jai4j.ConsistentHashAssignmentStrategy;
-import it.unimi.dsi.jai4j.NoSuchJobManagerException;
-import it.unimi.dsi.jai4j.RemoteJobManager;
-import it.unimi.dsi.jai4j.dropping.DiscardMessagesStrategy;
-import it.unimi.dsi.jai4j.dropping.TimedDroppingThreadFactory;
-import it.unimi.dsi.jai4j.jgroups.JGroupsJobManager;
-
 //RELEASE-STATUS: DIST
 
 /** A BUbiNG agent. This class contains the main method used to start a BUbiNG agent, and exposes on JMX a number of methods
  * that expose internal settings. In many cases settings can be changed while BUbiNG is running. */
 
 @MBean @Description("A BUbiNG agent")
-public class Agent extends JGroupsJobManager<BubingJob> {
+public class Agent {
 	private final static Logger LOGGER = LoggerFactory.getLogger(Agent.class);
 	/** The name of the standard Java system property that sets the JMX service port (it must be set for the agent to start). */
 	public static final String JMX_REMOTE_PORT_SYSTEM_PROPERTY = "com.sun.management.jmxremote.port";
-	/** The name of the system property that, if set, makes it possible to choose a JGroups configuration file. */
-	public static final String JGROUPS_CONFIGURATION_PROPERTY_NAME = "it.unimi.di.law.bubing.jgroups.configurationFile";
-
-	private static final String DEFAULT_JGROUPS_CONFIGURATION_FILE = "/" + JGroupsJobManager.class.getPackage().getName().replace('.', '/') + "/jgroups.xml";
 
 	/** The only instance of global data in this agent. */
 	private final RuntimeConfiguration rc;
@@ -94,38 +72,33 @@ public class Agent extends JGroupsJobManager<BubingJob> {
 	private static Agent theAgent;
 	private static volatile boolean hasStopped = false;
 
-	public Agent(final String hostname, final int jmxPort, final RuntimeConfiguration rc) throws Exception {
-		// TODO: configure strategies
+	protected final String name;
+	protected final JMXServiceURL jmxServiceURL;
+	protected final ObjectName selfObjectName;
 
-		super(rc.name, rc.weight,
-			new InetSocketAddress(hostname, jmxPort),
-			new JChannel( System.getProperty(JGROUPS_CONFIGURATION_PROPERTY_NAME) != null
-				? new FileInputStream(System.getProperty(JGROUPS_CONFIGURATION_PROPERTY_NAME))
-				: JGroupsJobManager.class.getResourceAsStream(DEFAULT_JGROUPS_CONFIGURATION_FILE) ),
-			rc.group,
-			new ConsistentHashAssignmentStrategy<>(),
-			new LinkedBlockingQueue<>(),
-			new TimedDroppingThreadFactory<>(1800000),
-			new DiscardMessagesStrategy<>()
-		);
+	public Agent(final String hostname, final int jmxPort, final RuntimeConfiguration rc) throws Exception {
+		// Initialize JMX related elements
+		this.name = rc.name;
+		final var jmxSocket = new InetSocketAddress(hostname, jmxPort);
+		final String jmxServiceURLString = "service:jmx:rmi:///jndi/rmi://" + jmxSocket.getAddress().getHostAddress() + ":" + jmxSocket.getPort() + "/jmxrmi";
+		this.jmxServiceURL = new JMXServiceURL(jmxServiceURLString);
+		final String selfObjectNameString = this.getClass().getPackage().getName() + ":type=" + this.getClass().getSimpleName() + ",name=" + name;
+		this.selfObjectName = new ObjectName(selfObjectNameString);
 
 		theAgent = this;
 
-		LOGGER.info("Creating Agent instance with properties {}", rc);
+		LOGGER.trace("Creating Agent instance with properties {}", rc);
 
 		// TODO: check crawlIsNew for all components.
 		this.rc = rc;
 
-		register();
+		register(); // Register the MBean
 
 		pulsarManager = new PulsarManager( rc );
 		pulsarManager.createFetchInfoProducers();
 
 		frontier = new Frontier(rc, this, pulsarManager );
 		frontier.init();
-		//setListener(frontier);
-
-		//connect();
 
 		// It is important that threads are allocated here, that is, after the agent has been connected.
 		frontier.dnsThreads(rc.dnsThreads);
@@ -186,10 +159,6 @@ public class Agent extends JGroupsJobManager<BubingJob> {
 			frontier.close();
 			LOGGER.warn( "Frontier closed" );
 
-			LOGGER.warn( "Closing Job Manager {}", this );
-			close();
-			LOGGER.warn( "Job Manager {} closed", this );
-
 			LOGGER.warn( "Closing FetchInfo producers" );
 			pulsarManager.closeFetchInfoProducers();
 			LOGGER.warn( "FetchInfo producers closed" );
@@ -208,34 +177,9 @@ public class Agent extends JGroupsJobManager<BubingJob> {
 		}
 	}
 
-	/* Methods required to extend JGroupsJobManager. */
-
-	@Override
-	public BubingJob fromString(final String s) {
-		final URI url = BURL.parse(s);
-		if (url != null && url.isAbsolute()) return new BubingJob(ByteArrayList.wrap(BURL.toByteArray(url)));
-		throw new IllegalArgumentException();
-	}
-
-	@Override
-	public byte[] toByteArray(final BubingJob job) throws IllegalArgumentException {
-		return job.url.toByteArray();
-	}
-
-	@Override
-	public BubingJob fromByteArray(byte[] array, int offset) throws IllegalArgumentException {
-		return new BubingJob(ByteArrayList.wrap(Arrays.copyOfRange(array, offset, array.length)));
-	}
-
-	/** Returns the number of agents currently known to the JAI4J {@link RemoteJobManager}.
-	 *
-	 * <p>Note that this number will be larger than that returned by {@link #getAliveCount()}
-	 * if there are {@linkplain #getSuspectedCount() suspected agents}.
-	 *
-	 * @return the number of agents currently known to the JAI4J {@link RemoteJobManager}.
-	 */
-	public int getKnownCount() {
-		return identifier2RemoteJobManager.size();
+	public void register() throws ManagementException {
+		LOGGER.info("Registering " + this + "...");
+		(new MBeanRegistration(this, this.selfObjectName)).register();
 	}
 
 	/* Main Managed Operations */
@@ -248,7 +192,6 @@ public class Agent extends JGroupsJobManager<BubingJob> {
 			rc.notifyAll();
 		}
 	}
-
 
 	@ManagedOperation @Description("Pause this agent")
 	public void pause() {
@@ -290,19 +233,13 @@ public class Agent extends JGroupsJobManager<BubingJob> {
 		}
 	}
 
-
-	@ManagedOperation @Description("Get manager for this URL")
-	public String getManager(@org.softee.management.annotation.Parameter("url") @Description("A URL") final String url) throws NoSuchJobManagerException {
-		return assignmentStrategy.manager(new BubingJob(ByteArrayList.wrap(BURL.toByteArray(BURL.parse(url))))).toString();
-	}
-
 	/* Properties, the same as RuntimeConfiguration: final fields in RuntimeConfiguration are not reported since they can be seen in the file .properties;
 	 * while volatile fields in RuntimeConfiguration can be get and set (except for paused and stopping)
 	 * */
 
 	@ManagedAttribute
 	public void setDnsThreads(final int dnsThreads) throws IllegalArgumentException {
-		frontier.dnsThreads(rc.dnsThreads = dnsThreads);
+		rc.dnsThreads = frontier.dnsThreads(dnsThreads);
 	}
 
 	@ManagedAttribute @Description("Number of DNS threads")
@@ -312,7 +249,7 @@ public class Agent extends JGroupsJobManager<BubingJob> {
 
 	@ManagedAttribute
 	public void setFetchingThreads(final int fetchingThreads) throws IllegalArgumentException, NoSuchAlgorithmException, IOException {
-		frontier.fetchingThreads(rc.fetchingThreads = fetchingThreads);
+		rc.fetchingThreads = frontier.fetchingThreads(fetchingThreads);
 	}
 
 	@ManagedAttribute @Description("Number of fetching threads")
@@ -352,7 +289,7 @@ public class Agent extends JGroupsJobManager<BubingJob> {
 
 	@ManagedAttribute
 	public void setParsingThreads(final int parsingThreads) throws IllegalArgumentException, NoSuchMethodException, InstantiationException, IllegalAccessException, InvocationTargetException, IOException, NoSuchAlgorithmException {
-		frontier.parsingThreads(rc.parsingThreads = parsingThreads);
+		rc.parsingThreads = frontier.parsingThreads(parsingThreads);
 	}
 
 	@ManagedAttribute @Description("Number of parsing threads (usually, no more than the number of available cores)")
@@ -423,6 +360,7 @@ public class Agent extends JGroupsJobManager<BubingJob> {
 	@ManagedAttribute
 	public void setKeepAliveTime(final int keepAliveTime) {
 		rc.keepAliveTime = keepAliveTime;
+		frontier.setRequests();
 	}
 
 	@ManagedAttribute @Description("If zero, connections are closed at each downloaded resource. Otherwise, the time span to download continuously from the same site using the same connection")
@@ -442,7 +380,8 @@ public class Agent extends JGroupsJobManager<BubingJob> {
 
 	@ManagedAttribute
 	public void setIpDelay(final long ipDelay) {
-		rc.ipDelay = ipDelay;
+		if (ipDelay > 250)
+			rc.ipDelay = ipDelay;
 	}
 
 	@ManagedAttribute @Description("Delay in milliseconds between two consecutive fetches from the same IP address")
@@ -451,13 +390,13 @@ public class Agent extends JGroupsJobManager<BubingJob> {
 	}
 
 	@ManagedAttribute
-	public void setMaxUrls(final long maxUrls) {
-		rc.maxUrls = maxUrls;
+	public void setCrawlRequestTTL(final long crawlRequestTTL) {
+		rc.crawlRequestTTL = crawlRequestTTL;
 	}
 
-	@ManagedAttribute @Description("Maximum number of URLs to crawl")
-	public long getMaxUrls() {
-		return rc.maxUrls;
+	@ManagedAttribute @Description("Time-to-live of a crawl request")
+	public long getCrawlRequestTTL() {
+		return rc.crawlRequestTTL;
 	}
 
 	@ManagedAttribute
@@ -481,8 +420,19 @@ public class Agent extends JGroupsJobManager<BubingJob> {
 	}
 
 	@ManagedAttribute
+	public void setCookieMaxByteSize(final int cookieMaxByteSize) {
+		rc.cookieMaxByteSize = cookieMaxByteSize;
+	}
+
+	@ManagedAttribute @Description("Maximum size of cookie file")
+	public int getCookieMaxByteSize() {
+		return rc.cookieMaxByteSize;
+	}
+
+	@ManagedAttribute
 	public void setSocketTimeout(final int socketTimeout) {
 		rc.socketTimeout = socketTimeout;
+		frontier.setRequests();
 	}
 
 	@ManagedAttribute @Description("Timeout in milliseconds for opening a socket")
@@ -493,12 +443,55 @@ public class Agent extends JGroupsJobManager<BubingJob> {
 	@ManagedAttribute
 	public void setConnectionTimeout(final int connectionTimeout) {
 		rc.connectionTimeout = connectionTimeout;
+		frontier.setRequests();
 	}
 
 	@ManagedAttribute @Description("Socket connection timeout in milliseconds")
 	public int getConnectionTimeout() {
 		return rc.connectionTimeout;
 	}
+
+	@ManagedAttribute
+	public void setDnsTimeout(final int dnsTimeout) {
+		rc.dnsTimeout = dnsTimeout;
+		Lookup.getDefaultResolver().setTimeout(Duration.ofMillis(rc.dnsTimeout));
+	}
+
+	@ManagedAttribute @Description("DNS query timeout in milliseconds")
+	public int getDnsTimeout() {
+		return rc.dnsTimeout;
+	}
+
+	@ManagedAttribute
+	public void setMaximumTimeToFirstByte(final int maximumTimeToFirstByte) {
+		rc.maximumTimeToFirstByte = maximumTimeToFirstByte;
+	}
+
+	@ManagedAttribute @Description("Maximum time allowed to first byte")
+	public int getMaximumTimeToFirstByte() {
+		return rc.maximumTimeToFirstByte;
+	}
+
+	@ManagedAttribute
+	public void setMaximumFetchDuration(final int maximumFetchDuration) {
+		rc.maximumFetchDuration = maximumFetchDuration;
+	}
+
+	@ManagedAttribute @Description("Maximum time allowed for fetching a page")
+	public int getMaximumFetchDuration() {
+		return rc.maximumFetchDuration;
+	}
+	@ManagedAttribute
+	public void setMinimumDownloadSpeed(final int minimumDownloadSpeed) {
+		rc.minimumDownloadSpeed = minimumDownloadSpeed;
+	}
+
+	@ManagedAttribute @Description("Minimum allowable download speed")
+	public int getMinimumDownloadSpeed() {
+		return rc.minimumDownloadSpeed;
+	}
+
+	public int minimumDownloadSpeed;
 
 	@ManagedAttribute
 	public void setRobotsExpiration(final long robotsExpiration) {
@@ -518,16 +511,6 @@ public class Agent extends JGroupsJobManager<BubingJob> {
 	@ManagedAttribute @Description("Maximum size of the workbench in bytes")
 	public long getWorkbenchMaxByteSize() {
 		return rc.workbenchMaxByteSize;
-	}
-
-	@ManagedAttribute
-	public void setUrlCacheMaxByteSize(final long urlCacheSize) {
-		rc.urlCacheMaxByteSize = urlCacheSize;
-	}
-
-	@ManagedAttribute @Description("Size in bytes of the URL cache")
-	public long getUrlCacheMaxByteSize() {
-		return rc.urlCacheMaxByteSize;
 	}
 
 	/*Statistical Properties, as reported by StatsThread */
@@ -658,7 +641,7 @@ public class Agent extends JGroupsJobManager<BubingJob> {
 
 	@ManagedAttribute @Description("Number of ready URLs")
 	public long getReadyURLs() {
-		return frontier.quickReceivedCrawlRequests.size();
+		return frontier.receivedCrawlRequests.size();
 	}
 
 	@ManagedAttribute @Description("Number of FetchingThread waits")
@@ -834,6 +817,11 @@ public class Agent extends JGroupsJobManager<BubingJob> {
 		return frontier.requiredFrontSize.get();
 	}
 
+	@ManagedAttribute
+	public void setRequiredFrontSize(long requiredFrontSize) {
+		frontier.requiredFrontSize.set(requiredFrontSize);
+	}
+
 	@ManagedAttribute @Description("Current required front size")
 	public long getFrontSize() {
 		return frontier.getCurrentFrontSize();
@@ -859,13 +847,11 @@ public class Agent extends JGroupsJobManager<BubingJob> {
 	}
 
 	public static void main(final String arg[]) throws Exception {
-		patchUriField("lowMask", "L_DASH");
-		patchUriField("highMask", "H_DASH");
+		//patchUriField("lowMask", "L_DASH");
+		//patchUriField("highMask", "H_DASH");
 
 		final SimpleJSAP jsap = new SimpleJSAP(Agent.class.getName(), "Starts a BUbiNG agent (note that you must enable JMX by means of the standard Java system properties).",
 				new Parameter[] {
-					new FlaggedOption("weight", JSAP.INTEGER_PARSER, "1", JSAP.NOT_REQUIRED, 'w', "weight", "The agent weight."),
-					new FlaggedOption("group", JSAP.STRING_PARSER, JSAP.NO_DEFAULT, JSAP.REQUIRED, 'g', "group", "The JGroups group identifier (must be the same for all cooperating agents)."),
 					new FlaggedOption("jmxHost", JSAP.STRING_PARSER, InetAddress.getLocalHost().getHostAddress(), JSAP.REQUIRED, 'h', "jmx-host", "The IP address (possibly specified by a host name) that will be used to expose the JMX RMI connector to other agents."),
 					new FlaggedOption("rootDir", JSAP.STRING_PARSER, JSAP.NO_DEFAULT, JSAP.NOT_REQUIRED, 'r', "root-dir", "The root directory."),
 					new Switch("new", 'n', "new", "Start a new crawl"),
@@ -887,17 +873,13 @@ public class Agent extends JGroupsJobManager<BubingJob> {
 		if (portProperty == null) throw new IllegalArgumentException("You must specify a JMX service port using the property " + JMX_REMOTE_PORT_SYSTEM_PROPERTY);
 
 		final String name = jsapResult.getString("name");
-		final int weight = jsapResult.getInt("weight");
 		final int id = jsapResult.getInt("id");
-		final String group = jsapResult.getString("group");
 		final String host = jsapResult.getString("jmxHost");
 		final int port = Integer.parseInt(portProperty);
 
 		final BaseConfiguration additional = new BaseConfiguration();
 		additional.addProperty("name", name);
-		additional.addProperty("group", group);
 		additional.addProperty("pulsarFrontierNodeId", Integer.toString(id));
-		additional.addProperty("weight", Integer.toString(weight));
 		additional.addProperty("crawlIsNew", jsapResult.getBoolean("new"));
 		additional.addProperty("priorityCrawl", jsapResult.getBoolean("priority"));
 		if (jsapResult.userSpecified("rootDir")) additional.addProperty("rootDir", jsapResult.getString("rootDir"));

@@ -1,33 +1,28 @@
 package it.unimi.di.law.warc.processors;
 
-import java.io.Closeable;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.PrintStream;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorCompletionService;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.martiansoftware.jsap.*;
+import it.unimi.di.law.warc.filters.Filter;
+import it.unimi.di.law.warc.filters.parser.FilterParser;
+import it.unimi.di.law.warc.io.CompressedWarcCachingReader;
+import it.unimi.di.law.warc.io.WarcFormatException;
+import it.unimi.di.law.warc.io.WarcReader;
+import it.unimi.di.law.warc.records.WarcRecord;
+import it.unimi.di.law.warc.util.ReorderingBlockingQueue;
+import it.unimi.dsi.fastutil.io.FastBufferedInputStream;
+import it.unimi.dsi.fastutil.io.FastBufferedOutputStream;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.lang.FlyweightPrototype;
+import it.unimi.dsi.lang.ObjectParser;
+import it.unimi.dsi.logging.ProgressLogger;
 import org.apache.commons.lang.mutable.MutableBoolean;
 import org.apache.commons.lang.mutable.MutableLong;
 import org.apache.http.util.Args;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.martiansoftware.jsap.FlaggedOption;
-import com.martiansoftware.jsap.JSAP;
-import com.martiansoftware.jsap.JSAPResult;
-import com.martiansoftware.jsap.Parameter;
-import com.martiansoftware.jsap.SimpleJSAP;
-import com.martiansoftware.jsap.Switch;
-import com.martiansoftware.jsap.UnflaggedOption;
+import java.io.*;
+import java.util.concurrent.*;
 
 /*
  * Copyright (C) 2004-2017 Paolo Boldi, Massimo Santini, and Sebastiano Vigna
@@ -44,22 +39,7 @@ import com.martiansoftware.jsap.UnflaggedOption;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 // RELEASE-STATUS: DIST
-
-import it.unimi.di.law.warc.filters.Filter;
-import it.unimi.di.law.warc.filters.parser.FilterParser;
-import it.unimi.di.law.warc.io.CompressedWarcCachingReader;
-import it.unimi.di.law.warc.io.WarcFormatException;
-import it.unimi.di.law.warc.io.WarcReader;
-import it.unimi.di.law.warc.records.WarcRecord;
-import it.unimi.di.law.warc.util.ReorderingBlockingQueue;
-import it.unimi.dsi.fastutil.io.FastBufferedInputStream;
-import it.unimi.dsi.fastutil.io.FastBufferedOutputStream;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import it.unimi.dsi.lang.FlyweightPrototype;
-import it.unimi.dsi.lang.ObjectParser;
-import it.unimi.dsi.logging.ProgressLogger;
 
 public class ParallelFilteredProcessorRunner {
 

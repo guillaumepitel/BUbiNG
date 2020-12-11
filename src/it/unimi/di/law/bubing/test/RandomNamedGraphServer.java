@@ -1,5 +1,7 @@
 package it.unimi.di.law.bubing.test;
 
+import it.unimi.dsi.lang.MutableString;
+import it.unimi.dsi.util.XoRoShiRo128PlusRandomGenerator;
 import org.apache.commons.lang.StringUtils;
 
 /*
@@ -17,9 +19,6 @@ import org.apache.commons.lang.StringUtils;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-import it.unimi.dsi.lang.MutableString;
-import it.unimi.dsi.util.XoRoShiRo128PlusRandomGenerator;
 
 //RELEASE-STATUS: DIST
 

@@ -150,14 +150,19 @@ public class LinksHandler
     final AnchorBuilder anchor = anchors.pop();
     if ( anchor == AnchorBuilder.DUMMY ) return;
     final String anchorText = anchor.getAnchorText( maxAnchorTextLength );
-    addLink( anchor.imgOpt == null ? HTMLLink.Type.A : HTMLLink.Type.IMG, anchor.uri, anchor.title, anchorText, anchor.rel );
+    if ( anchor.imgOpt == null )
+      addLink( HTMLLink.Type.A, anchor.uri, anchor.title, anchorText, anchor.rel );
+    else
+    if ( anchorText != null && !anchorText.isBlank() )
+      addLink( HTMLLink.Type.A, anchor.uri, anchor.title, anchorText, anchor.rel );
+    else
+      addLink( HTMLLink.Type.IMG, anchor.uri, anchor.title, anchor.imgOpt.text, anchor.rel );
   }
 
   private void startTagLink( final Attributes attributes ) {
     final String uri = attributes.getValue( Atts.HREF );
     if ( uri == null ) return;
     final String rel = attributes.getValue( Atts.REL );
-    //if ( "canonical".equalsIgnoreCase(rel) )
     addLink( HTMLLink.Type.LINK, uri, null, null, rel );
   }
 
@@ -205,10 +210,6 @@ public class LinksHandler
     if ( uri == null ) return;
     final String title = attributes.getValue( Atts.TITLE );
     final String alt = attributes.getValue( Atts.ALT );
-    if ( anchor.text.length() < maxAnchorTextLength ) {
-      if ( alt != null ) anchor.characters( alt );
-      else if ( title != null ) anchor.characters( title );
-    }
     anchor.imgOpt = new HTMLLink( HTMLLink.Type.IMG, uri, title, alt, null );
   }
 

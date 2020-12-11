@@ -1,18 +1,20 @@
 package it.unimi.di.law.bubing.frontier;
 
-import java.io.Closeable;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-
+import com.sleepycat.je.Cursor;
+import com.sleepycat.je.Database;
+import it.unimi.di.law.bubing.util.BURL;
+import it.unimi.di.law.bubing.util.ByteArrayDiskQueues;
+import it.unimi.di.law.bubing.util.ByteArrayDiskQueues.QueueData;
+import it.unimi.di.law.bubing.util.Util;
+import it.unimi.dsi.fastutil.bytes.ByteArrayList;
+import it.unimi.dsi.fastutil.io.FastBufferedInputStream;
+import it.unimi.dsi.fastutil.io.FastBufferedOutputStream;
+import it.unimi.dsi.fastutil.objects.ObjectIterator;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.sleepycat.je.Cursor;
-import com.sleepycat.je.Database;
+import java.io.*;
 
 /*
  * Copyright (C) 2013-2017 Paolo Boldi, Massimo Santini, and Sebastiano Vigna
@@ -29,16 +31,6 @@ import com.sleepycat.je.Database;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-import it.unimi.di.law.bubing.util.BURL;
-import it.unimi.di.law.bubing.util.ByteArrayDiskQueues;
-import it.unimi.di.law.bubing.util.ByteArrayDiskQueues.QueueData;
-import it.unimi.di.law.bubing.util.Util;
-import it.unimi.dsi.fastutil.bytes.ByteArrayList;
-import it.unimi.dsi.fastutil.io.FastBufferedInputStream;
-import it.unimi.dsi.fastutil.io.FastBufferedOutputStream;
-import it.unimi.dsi.fastutil.objects.ObjectIterator;
-import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
 
 //RELEASE-STATUS: DIST
 

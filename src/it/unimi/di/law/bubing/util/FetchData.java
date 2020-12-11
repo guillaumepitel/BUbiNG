@@ -16,6 +16,9 @@ package it.unimi.di.law.bubing.util;
  * limitations under the License.
  */
 
+import com.exensa.wdl.protobuf.frontier.MsgFrontier;
+import com.google.common.base.Charsets;
+import com.google.common.net.HttpHeaders;
 import it.unimi.di.law.bubing.RuntimeConfiguration;
 import it.unimi.di.law.bubing.frontier.ParsingThread;
 import it.unimi.di.law.bubing.frontier.VisitState;
@@ -25,7 +28,21 @@ import it.unimi.di.law.bubing.test.RandomNamedGraphServer;
 import it.unimi.di.law.warc.filters.URIResponse;
 import it.unimi.di.law.warc.util.InspectableCachedHttpEntity;
 import it.unimi.dsi.fastutil.io.InspectableFileCachedInputStream;
-import com.exensa.wdl.protobuf.frontier.MsgFrontier;
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang.mutable.MutableLong;
+import org.apache.http.*;
+import org.apache.http.client.ClientProtocolException;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.ResponseHandler;
+import org.apache.http.client.config.RequestConfig;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.protocol.HttpClientContext;
+import org.apache.http.concurrent.FutureCallback;
+import org.apache.http.entity.BasicHttpEntity;
+import org.apache.http.message.BasicHeader;
+import org.apache.http.message.BasicHttpResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.File;
@@ -34,30 +51,15 @@ import java.net.InetAddress;
 import java.net.URI;
 import java.nio.channels.ClosedChannelException;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Queue;
-
-import org.apache.commons.io.IOUtils;
-import org.apache.http.Header;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpHost;
-import org.apache.http.HttpResponse;
-import org.apache.http.ProtocolVersion;
-import org.apache.http.client.ClientProtocolException;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.ResponseHandler;
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.concurrent.FutureCallback;
-import org.apache.http.entity.BasicHttpEntity;
-import org.apache.http.message.BasicHeader;
-import org.apache.http.message.BasicHttpResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Charsets;
-import com.google.common.net.HttpHeaders;
+import java.util.stream.Collectors;
 
 //RELEASE-STATUS: DIST
 
@@ -153,6 +155,9 @@ public class FetchData implements URIResponse, Closeable {
 	/** {@link System#currentTimeMillis()} when the GET request was issued. */
 	public volatile long startTime;
 
+	/** {@link System#currentTimeMillis()} when the GET request returned its first byte. */
+	public volatile long firstByteTime;
+
 	/** {@link System#currentTimeMillis()} when the GET request was completed. */
 	public volatile long endTime;
 
@@ -186,6 +191,9 @@ public class FetchData implements URIResponse, Closeable {
 	/** The request used by this response. */
 	private final HttpGet httpGet;
 
+	/** The HttpClientContext of this fetch */
+	private HttpClientContext httpClientContext;
+
 	/** If true, this istance has been enqueued to the list of results and we are waiting
 	 * for the signal of the {@link ParsingThread} that is analyzing it. */
 	//public volatile boolean inUse;
@@ -194,6 +202,8 @@ public class FetchData implements URIResponse, Closeable {
 	private final RuntimeConfiguration rc;
 
 	public volatile byte lang; // FIXME: already in ParseData
+
+	public volatile String eTag;
 
 	public volatile Map<String,String> extraMap;
 
@@ -334,7 +344,7 @@ public class FetchData implements URIResponse, Closeable {
       fakeEntity.setContentLength(content.length());
       fakeEntity.setContentType(FAKE_CONTENT_TYPE);
       wrappedEntity.setEntity(fakeEntity);
-      wrappedEntity.copyContent(rc.responseBodyMaxByteSize, startTime, rc.connectionTimeout, 10);
+      wrappedEntity.copyContent(rc.responseBodyMaxByteSize, startTime, rc.maximumFetchDuration, rc.minimumDownloadSpeed, rc.maximumTimeToFirstByte, new MutableLong());
       (response = FAKE_RESPONSE).setEntity(wrappedEntity);
     }
     catch ( IOException e ) {
@@ -354,26 +364,50 @@ public class FetchData implements URIResponse, Closeable {
       if (LOGGER.isTraceEnabled()) LOGGER.trace("Fetching {}", url);
 
       httpGet.setURI(url);
-      if (requestConfig != null)
-        httpGet.setConfig(requestConfig);
+			httpGet.removeHeaders(HttpHeaders.IF_MODIFIED_SINCE);
+			httpGet.removeHeaders(HttpHeaders.IF_NONE_MATCH);
 
+			if (crawlRequest.hasCrawlInfo()) {
+      	if (crawlRequest.getCrawlInfo().getETag().length() > 0) {
+					httpGet.setHeader(HttpHeaders.IF_NONE_MATCH, crawlRequest.getCrawlInfo().getETag());
+				}
+					if (crawlRequest.getCrawlInfo().getLastFetchTimeMinutes() > 0) {
+						DateTimeFormatter dtf = DateTimeFormatter.RFC_1123_DATE_TIME.withZone(ZoneId.of("GMT")).withLocale(Locale.ENGLISH);
+						httpGet.setHeader(new BasicHeader(HttpHeaders.IF_MODIFIED_SINCE,
+							dtf.format(Instant.EPOCH.plus(Duration.ofMinutes(crawlRequest.getCrawlInfo().getLastFetchTimeMinutes() )))));
+					}
+			}
+
+      if (requestConfig != null) {
+				httpGet.setConfig(requestConfig);
+			}
+			httpClientContext = HttpClientContext.create();
+			MutableLong mutableFirstByteTime = new MutableLong();
+			mutableFirstByteTime.setValue(startTime);
       httpClient.execute( httpHost, httpGet, new ResponseHandler<Void>() {
+
         @Override
         public Void handleResponse(HttpResponse response) throws ClientProtocolException, IOException {
           FetchData.this.response = response;
+
           final HttpEntity entity = response.getEntity();
 
           if (entity == null)
             LOGGER.warn( "Null entity for URL " + url );
           else {
             wrappedEntity.setEntity(entity);
-            truncated = wrappedEntity.copyContent(rc.responseBodyMaxByteSize, startTime, rc.connectionTimeout, 10);
+            truncated = wrappedEntity.copyContent(rc.responseBodyMaxByteSize, startTime, rc.maximumFetchDuration, rc.minimumDownloadSpeed, rc.maximumTimeToFirstByte, mutableFirstByteTime);
+            firstByteTime = mutableFirstByteTime.longValue();
             if (truncated)
               httpGet.abort();
           }
           return null;
         }
-      } );
+      }, httpClientContext );
+
+      if (httpClientContext.getRedirectLocations() != null && httpClientContext.getRedirectLocations().size() > 0)
+      	LOGGER.debug("Redirection chain : {}", String.join(" -> ",
+					httpClientContext.getRedirectLocations().stream().map(Object::toString).collect(Collectors.toList())));
 
       response.setEntity(wrappedEntity);
     }
@@ -387,6 +421,20 @@ public class FetchData implements URIResponse, Closeable {
       httpGet.reset(); // Release resources.
     }
   }
+
+	public boolean hasRedirects() {
+		return (httpClientContext != null &&
+			httpClientContext.getRedirectLocations() != null &&
+			httpClientContext.getRedirectLocations().size() > 0);
+	}
+
+  public URI getTerminalURI() {
+		if (httpClientContext != null &&
+		httpClientContext.getRedirectLocations() != null &&
+		httpClientContext.getRedirectLocations().size() > 0)
+			return httpClientContext.getRedirectLocations().get(httpClientContext.getRedirectLocations().size() - 1);
+		return this.url;
+	}
 
 	/**
 	 * Set the digest with a given value

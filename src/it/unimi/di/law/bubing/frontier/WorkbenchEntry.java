@@ -16,6 +16,10 @@ package it.unimi.di.law.bubing.frontier;
  * limitations under the License.
  */
 
+import org.apache.http.conn.DnsResolver;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Arrays;
@@ -24,10 +28,6 @@ import java.util.concurrent.DelayQueue;
 import java.util.concurrent.Delayed;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-
-import org.apache.http.conn.DnsResolver;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 //RELEASE-STATUS: DIST
 
@@ -68,17 +68,25 @@ public final class WorkbenchEntry implements Delayed {
 	protected boolean acquired;
 	/** The minimum time at which {@linkplain VisitState visit states} in this entry can be accessed because of IP-based politeness. */
 	protected volatile long nextFetch;
+	/** Extra Delay between fetches */
+	protected long delay;
 
 	/** Creates a workbench entry for a given IP address.
 	 *
 	 * @param ipAddress the IP address.
 	 * @param brokenVisitStates a reference to {@link Frontier#brokenVisitStates}.
 	 */
+
 	public WorkbenchEntry(final byte[] ipAddress, final AtomicLong brokenVisitStates, final int overflowCounter) {
+		this(ipAddress, brokenVisitStates, overflowCounter, 100);
+	}
+
+	public WorkbenchEntry(final byte[] ipAddress, final AtomicLong brokenVisitStates, final int overflowCounter, final int baseDelay) {
 		this.ipAddress = ipAddress;
 		this.overflowCounter = overflowCounter;
 		this.workbenchBroken = brokenVisitStates;
 		this.visitStates = new PriorityQueue<>();
+		this.delay = baseDelay;
 	}
 
 	/** Returns true if this entry is nonempty and all its visit states are broken (i.e., {@link VisitState#lastExceptionClass} &ne; {@code null})
@@ -210,10 +218,15 @@ public final class WorkbenchEntry implements Delayed {
 	@Override
 	public synchronized String toString() {
 		try {
-			return "[" + InetAddress.getByAddress(ipAddress) + " (" + visitStates.size() + ")]";
+			return "[" + InetAddress.getByAddress(ipAddress) + " (" + visitStates.size() + ")" + "/" + overflowCounter + "]";
 		}
 		catch (UnknownHostException e) {
 			throw new RuntimeException(e.getMessage(), e);
 		}
 	}
+
+  public void increaseDelay() {
+		delay = delay + Math.max(500, delay/2);
+		LOGGER.info("Increasing extra delay of {} to {}ms", this.toString(), delay);
+  }
 }

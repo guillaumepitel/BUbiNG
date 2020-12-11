@@ -1,34 +1,40 @@
 package it.unimi.di.law.bubing;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Modifier;
-import java.net.InetAddress;
-import java.net.URI;
-import java.net.URL;
-import java.net.UnknownHostException;
-import java.util.*;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.regex.Pattern;
-import java.util.zip.GZIPInputStream;
-
-import it.unimi.di.law.bubing.categories.TextClassifier;
+import com.google.common.base.Charsets;
+import com.google.common.primitives.Ints;
+import it.unimi.di.law.bubing.frontier.ParsingThread;
+import it.unimi.di.law.bubing.parser.Parser;
+import it.unimi.di.law.bubing.store.Store;
 import it.unimi.di.law.bubing.util.FetchData;
+import it.unimi.di.law.bubing.util.Link;
+import it.unimi.di.law.warc.filters.Filter;
+import it.unimi.di.law.warc.filters.URIResponse;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import it.unimi.dsi.io.FastBufferedReader;
+import it.unimi.dsi.io.LineIterator;
+import it.unimi.dsi.lang.FlyweightPrototype;
+import it.unimi.dsi.lang.MutableString;
+import it.unimi.dsi.lang.ObjectParser;
 import org.apache.commons.configuration.ConfigurationException;
 import org.apache.http.conn.DnsResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Charsets;
-import com.google.common.collect.Iterators;
-import com.google.common.primitives.Ints;
+import java.io.*;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Modifier;
+import java.net.InetAddress;
+import java.net.URI;
+import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.TreeMap;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.regex.Pattern;
+
+import static it.unimi.di.law.bubing.util.HostHash.hostLongHash;
 
 /*
  * Copyright (C) 2012-2017 Paolo Boldi, Massimo Santini, and Sebastiano Vigna
@@ -45,27 +51,6 @@ import com.google.common.primitives.Ints;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-
-import it.unimi.di.law.bubing.frontier.ParsingThread;
-import it.unimi.di.law.bubing.parser.Parser;
-import it.unimi.di.law.bubing.spam.SpamDetector;
-import it.unimi.di.law.bubing.store.Store;
-import it.unimi.di.law.bubing.util.BURL;
-import it.unimi.di.law.bubing.util.Link;
-import it.unimi.di.law.warc.filters.Filter;
-import it.unimi.di.law.warc.filters.Filters;
-import it.unimi.di.law.warc.filters.URIResponse;
-import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
-import it.unimi.dsi.fastutil.io.BinIO;
-import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import it.unimi.dsi.io.FastBufferedReader;
-import it.unimi.dsi.io.LineIterator;
-import it.unimi.dsi.lang.FlyweightPrototype;
-import it.unimi.dsi.lang.MutableString;
-import it.unimi.dsi.lang.ObjectParser;
-
-import static it.unimi.di.law.bubing.util.HostHash.hostLongHash;
 
 //RELEASE-STATUS: DIST
 
@@ -92,15 +77,6 @@ public class RuntimeConfiguration {
 
 	/** @see StartupConfiguration#name */
 	public final String name;
-
-	/** @see StartupConfiguration#group */
-	public final String group;
-
-	/** @see StartupConfiguration#weight */
-	public final int weight;
-
-	/** @see StartupConfiguration#maxUrlsPerSchemeAuthority */
-	public final int maxUrlsPerSchemeAuthority;
 
 	/** @see StartupConfiguration#maxInstantSchemeAuthorityPerIP */
 	public volatile int maxInstantSchemeAuthorityPerIP;
@@ -144,21 +120,10 @@ public class RuntimeConfiguration {
 	/** @see StartupConfiguration#ipDelay */
 	public volatile long ipDelay;
 
-	/** @see StartupConfiguration#ipDelayFactor */
-	public volatile double ipDelayFactor;
+	/** @see StartupConfiguration#crawlRequestTTL */
+	public volatile long crawlRequestTTL;
 
-	/** @see StartupConfiguration#maxUrls */
-	public volatile long maxUrls;
-
-	/** @see StartupConfiguration#bloomFilterPrecision */
-	public final double bloomFilterPrecision;
-
-	/** An iterator returning URIs that are then used as a seed; this iterator <em>may</em> return {@code null} (when
-	 * invalid or relative URLs are specified).
-	 * @see StartupConfiguration#seed */
-	public final Iterator<URI> seed;
-
-	/** @see StartupConfiguration#seed */
+	/** @see StartupConfiguration#blackListedIPv4Addresses */
 	public final IntOpenHashSet blackListedIPv4Addresses;
 
 	/** A lock used to access {@link #blackListedIPv4Addresses}. */
@@ -177,6 +142,18 @@ public class RuntimeConfiguration {
 	/** @see StartupConfiguration#connectionTimeout */
 	public volatile int connectionTimeout;
 
+	/** @see StartupConfiguration#dnsTimeout */
+	public volatile int dnsTimeout;
+
+	/** @see StartupConfiguration#maximumTimeToFirstByte */
+	public int maximumTimeToFirstByte;
+
+	/** @see StartupConfiguration#maximumFetchDuration */
+	public int maximumFetchDuration;
+
+	/** @see StartupConfiguration#minimumDownloadSpeed */
+	public int minimumDownloadSpeed;
+
 	/** @see StartupConfiguration#fetchDataBufferByteSize */
 	public final int fetchDataBufferByteSize;
 
@@ -186,14 +163,23 @@ public class RuntimeConfiguration {
 	/** @see StartupConfiguration#proxyPort */
 	public final int proxyPort;
 
+	/** @see StartupConfiguration#robotProxyHost */
+	public final String robotProxyHost;
+
+	/** @see StartupConfiguration#robotProxyPort */
+	public final int robotProxyPort;
+
 	/** @see StartupConfiguration#cookiePolicy */
 	public final String cookiePolicy;
 
 	/** @see StartupConfiguration#cookieMaxByteSize */
-	public final int cookieMaxByteSize;
+	public int cookieMaxByteSize;
 
 	/** @see StartupConfiguration#userAgent */
 	public final String userAgent;
+
+	/** @see StartupConfiguration#userAgentId */
+	public final String userAgentId;
 
 	/** @see StartupConfiguration#userAgentFrom */
 	public final String userAgentFrom;
@@ -224,9 +210,6 @@ public class RuntimeConfiguration {
 
 	/** @see StartupConfiguration#startPaused */
 	public final boolean startPaused;
-
-	/** @see StartupConfiguration#reinitCounts */
-	public final boolean reinitCounts;
 
 	/** @see StartupConfiguration#storeClass */
 	public final Class<? extends Store> storeClass;
@@ -270,18 +253,6 @@ public class RuntimeConfiguration {
 	/** @see StartupConfiguration#virtualizerMaxByteSize */
 	public final long virtualizerMaxByteSize;
 
-	/** @see StartupConfiguration#urlCacheMaxByteSize */
-	public volatile long urlCacheMaxByteSize;
-
-	/** @see StartupConfiguration#sieveSize */
-	public final int sieveSize;
-
-	/** @see StartupConfiguration#sieveStoreIOBufferByteSize */
-	public final int sieveStoreIOBufferByteSize;
-
-	/** @see StartupConfiguration#sieveAuxFileIOBufferByteSize */
-	public final int sieveAuxFileIOBufferByteSize;
-
 	/** @see StartupConfiguration#dnsCacheMaxSize */
 	public final int dnsCacheMaxSize;
 
@@ -296,21 +267,6 @@ public class RuntimeConfiguration {
 
 	/** @see StartupConfiguration#priorityCrawl */
 	public final boolean priorityCrawl;
-
-	/** @see StartupConfiguration#spamDetectorUri */
-	public final SpamDetector<?> spamDetector;
-
-	/** @see StartupConfiguration#spamDetectionThreshold */
-	public final int spamDetectionThreshold;
-
-	/** @see StartupConfiguration#spamDetectionPeriodicity */
-	public final int spamDetectionPeriodicity;
-
-	/** @see StartupConfiguration#classifierClass */
-	public final Class<? extends TextClassifier> classifierClass;
-
-	/** @see StartupConfiguration#textClassifierConfigFileName */
-	public final String textClassifierConfigFileName;
 
 	/** The parser, instantiated. Parsers used by {@link ParsingThread} instances are obtained by {@linkplain FlyweightPrototype#copy() copying this parsers}. */
 	public final ArrayList<Parser<?>> parsers;
@@ -327,9 +283,6 @@ public class RuntimeConfiguration {
 	 * variable will never become false again. */
 	public volatile boolean stopping;
 
-	/** Whether the crawler is currently creating a seed snapshot. */
-	public volatile boolean snappingSeed;
-
 	/** The DNS resolver used throughout the crawler.
 	 * @see StartupConfiguration#dnsResolverClass */
 	public final DnsResolver dnsResolver;
@@ -338,16 +291,6 @@ public class RuntimeConfiguration {
 	 *  It covers both IPv6 addresses (where hexadecimal notation is accepted by default) and IPv4 addresses (where hexadecimal notation
 	 *  requires the 0x prefix on every single piece of the address). */
 	public static final Pattern DOTTED_ADDRESS = Pattern.compile("(([0-9A-Fa-f]+[:])*[0-9A-Fa-f]+)|((((0x[0-9A-Fa-f]+)|([0-9]+))\\.)*((0x[0-9A-Fa-f]+)|([0-9]+)))");
-
-	private static URI handleSeedURL(final MutableString s) {
-		final URI url = BURL.parse(s);
-		if (url != null) {
-			if (url.isAbsolute()) return url;
-			else LOGGER.error("The seed URL " + s + " is relative");
-		}
-		else LOGGER.error("The seed URL " + s + " is malformed");
-		return null;
-	}
 
 	/** Converts a string specifying an IPv4 address into an integer. The string can be either a single integer (representing
 	 *  the address) or a dot-separated 4-tuple of bytes.
@@ -406,86 +349,11 @@ public class RuntimeConfiguration {
 		else blackListedHostHashes.add(hostLongHash(spec.trim()));
 	}
 
-	private List<Iterator<URI>> getSeedSequence(File seedFile) {
-		final List<Iterator<URI>> seedSequence = new ArrayList<>();
-		if (seedFile.getName().equals("..") || seedFile.getName().equals("."))
-			return seedSequence;
-
-		try {
-			LOGGER.info("Adding seed {}", seedFile.getPath());
-			if (seedFile.isDirectory())
-				seedSequence.addAll(getSeedSequence(seedFile.listFiles()));
-			else {
-				final LineIterator lineIterator;
-
-				if (seedFile.getPath().endsWith(".gz"))
-					lineIterator = new LineIterator(new FastBufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(seedFile)), Charsets.UTF_8)));
-				else
-					lineIterator = new LineIterator(new FastBufferedReader(new InputStreamReader(new FileInputStream(seedFile), Charsets.UTF_8)));
-				seedSequence.add(new Iterator<URI>() {
-					@Override
-					public boolean hasNext() {
-						return lineIterator.hasNext();
-					}
-
-					@Override
-					public URI next() {
-						return handleSeedURL(lineIterator.next());
-					}
-
-					@Override
-					public void remove() {
-						throw new UnsupportedOperationException();
-					}
-				});
-			}
-		}
-		catch (IOException e ) {
-			LOGGER.error( "Failed to open seed file", e );
-		}
-		return seedSequence;
-	}
-
-	private List<Iterator<URI>> getSeedSequence(File[] files) {
-		final List<Iterator<URI>> seedSequence = new ArrayList<>();
-		final List<File> seedFileSequence = new ArrayList<>();
-		for (final File f : files)
-			seedFileSequence.add(f);
-
-		Collections.shuffle(seedFileSequence);
-		for (final File f : seedFileSequence) {
-			seedSequence.addAll(getSeedSequence(f));
-		}
-		return seedSequence;
-	}
-	private List<Iterator<URI>> getSeedSequence(String[] seedSpecs) {
-		final List<Iterator<URI>> seedSequence = new ArrayList<>();
-		final List<String> seedSpecSequence = new ArrayList<>();
-		for (final String spec : seedSpecs)
-			seedSpecSequence.add(spec);
-
-		Collections.shuffle(seedSpecSequence);
-		for (final String spec : seedSpecSequence) {
-			if (spec.length() == 0) continue; // Skip empty lines
-			LOGGER.info("Adding seed {}", spec);
-			if (spec.startsWith("file:")) {
-				final String fileSpec = spec.substring(5);
-				seedSequence.addAll(getSeedSequence(new File(fileSpec)));
-			} else {
-				seedSequence.add(Iterators.singletonIterator(handleSeedURL(new MutableString(spec))));
-			}
-		}
-		return seedSequence;
-	}
-
 	public RuntimeConfiguration(final StartupConfiguration startupConfiguration) throws ConfigurationException, IOException {
 		try {
 			crawlIsNew = startupConfiguration.crawlIsNew;
 			priorityCrawl = startupConfiguration.priorityCrawl;
 			name = startupConfiguration.name;
-			group = startupConfiguration.group;
-			weight = startupConfiguration.weight;
-			maxUrlsPerSchemeAuthority = startupConfiguration.maxUrlsPerSchemeAuthority;
 			maxInstantSchemeAuthorityPerIP = startupConfiguration.maxInstantSchemeAuthorityPerIP;
 			maxVisitStates = startupConfiguration.maxVisitStates;
 			maxRequestsPerSchemeAuthority = startupConfiguration.maxRequestsPerSchemeAuthority;
@@ -500,11 +368,8 @@ public class RuntimeConfiguration {
 			keepAliveTime = startupConfiguration.keepAliveTime;
 			schemeAuthorityDelay = startupConfiguration.schemeAuthorityDelay;
 			ipDelay = startupConfiguration.ipDelay;
-			ipDelayFactor = startupConfiguration.ipDelayFactor;
-			maxUrls = startupConfiguration.maxUrls;
-			bloomFilterPrecision = startupConfiguration.bloomFilterPrecision;
+			crawlRequestTTL = startupConfiguration.crawlRequestTTL;
 			startPaused = startupConfiguration.startPaused;
-			reinitCounts = startupConfiguration.reinitCounts;
 			storeClass = startupConfiguration.storeClass;
 			maxRecordsPerFile = startupConfiguration.maxRecordsPerFile;
 			maxSecondsBetweenDumps = startupConfiguration.maxSecondsBetweenDumps;
@@ -519,14 +384,9 @@ public class RuntimeConfiguration {
 			pulsarFrontierToPromptlyCrawlURLsTopic = startupConfiguration.pulsarFrontierToPromptlyCrawlURLsTopic;
 			workbenchMaxByteSize = startupConfiguration.workbenchMaxByteSize;
 			virtualizerMaxByteSize = startupConfiguration.virtualizerMaxByteSize;
-			urlCacheMaxByteSize = startupConfiguration.urlCacheMaxByteSize;
-			sieveSize = startupConfiguration.sieveSize & -1 << 3;
-			sieveStoreIOBufferByteSize = startupConfiguration.sieveStoreIOBufferByteSize & -1 << 3;
-			sieveAuxFileIOBufferByteSize = startupConfiguration.sieveStoreIOBufferByteSize & -1 << 3;
 			dnsCacheMaxSize = startupConfiguration.dnsCacheMaxSize;
 			dnsPositiveTtl = startupConfiguration.dnsPositiveTtl;
 			dnsNegativeTtl = startupConfiguration.dnsNegativeTtl;
-			classifierClass = startupConfiguration.classifierClass;
 
 			try {
 				dnsResolver = startupConfiguration.dnsResolverClass.getConstructor().newInstance();
@@ -534,20 +394,6 @@ public class RuntimeConfiguration {
 			catch (final Exception e) {
 				throw new ConfigurationException(e.getMessage(), e);
 			}
-
-			if (startupConfiguration.spamDetectorUri.length() > 0) {
-				final InputStream spamDetectorStream = new URL(startupConfiguration.spamDetectorUri).openStream();
-				spamDetector = (SpamDetector<?>)BinIO.loadObject(spamDetectorStream);
-				spamDetectorStream.close();
-			}
-			else spamDetector = null;
-
-			spamDetectionThreshold = startupConfiguration.spamDetectionThreshold;
-			spamDetectionPeriodicity = startupConfiguration.spamDetectionPeriodicity;
-
-			textClassifierConfigFileName = startupConfiguration.textClassifierConfigFileName;
-
-			final List<Iterator<URI>> seedSequence = getSeedSequence(startupConfiguration.seed);
 
 			blackListedIPv4Addresses = new IntOpenHashSet();
 			for(final String spec : startupConfiguration.blackListedIPv4Addresses) addBlackListedIPv4(spec);
@@ -557,9 +403,12 @@ public class RuntimeConfiguration {
 			for(String spec : startupConfiguration.blackListedHosts) addBlackListedHost(spec);
 			blackListedHostHashesLock = new ReentrantReadWriteLock();
 
-			this.seed = Iterators.concat(seedSequence.iterator());
 			socketTimeout = startupConfiguration.socketTimeout;
 			connectionTimeout = startupConfiguration.connectionTimeout;
+			minimumDownloadSpeed = startupConfiguration.minimumDownloadSpeed;
+			maximumFetchDuration = startupConfiguration.maximumFetchDuration;
+			maximumTimeToFirstByte = startupConfiguration.maximumTimeToFirstByte;
+			dnsTimeout = startupConfiguration.dnsTimeout;
 			rootDir = new File(startupConfiguration.rootDir);
 			storeDir = StartupConfiguration.subDir(startupConfiguration.rootDir, startupConfiguration.storeDir);
 			responseCacheDir = StartupConfiguration.subDir(startupConfiguration.rootDir, startupConfiguration.responseCacheDir);
@@ -567,9 +416,12 @@ public class RuntimeConfiguration {
 			fetchDataBufferByteSize = startupConfiguration.fetchDataBufferByteSize;
 			proxyHost = startupConfiguration.proxyHost;
 			proxyPort = startupConfiguration.proxyPort;
+			robotProxyHost = startupConfiguration.robotProxyHost;
+			robotProxyPort = startupConfiguration.robotProxyPort;
 			cookiePolicy = startupConfiguration.cookiePolicy;
 			cookieMaxByteSize = startupConfiguration.cookieMaxByteSize;
 			userAgent = startupConfiguration.userAgent;
+			userAgentId = startupConfiguration.userAgentId;
 			userAgentFrom = startupConfiguration.userAgentFrom;
 			robotsExpiration = startupConfiguration.robotsExpiration;
 			acceptAllCertificates = startupConfiguration.acceptAllCertificates;
@@ -587,8 +439,6 @@ public class RuntimeConfiguration {
 		catch (final InvocationTargetException e) { throw new ConfigurationException(e); }
 		catch (final InstantiationException e) { throw new ConfigurationException(e); }
 		catch (final NoSuchMethodException e) { throw new ConfigurationException(e); }
-
-		if (sieveSize == 0 && followFilter != Filters.FALSE) throw new ConfigurationException("Without a sieve you must specify a FALSE follow filter");
 	}
 
 	public void ensureNotPaused() throws InterruptedException {

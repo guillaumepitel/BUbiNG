@@ -13,6 +13,7 @@ docs/
 jars/
 outcomes/
 reports/
+target/
 src/it/unimi/di/law/warc/filters/parser/FilterParser.java
 src/it/unimi/di/law/warc/filters/parser/FilterParserConstants.java
 src/it/unimi/di/law/warc/filters/parser/FilterParserTokenManager.java
@@ -25,3 +26,4 @@ src/it/unimi/di/law/bubing/protobuf/*.java
 priv/
 bin/
 tests/
+BUbiNG.tar.gz

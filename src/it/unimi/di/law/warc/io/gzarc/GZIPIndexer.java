@@ -18,26 +18,19 @@ package it.unimi.di.law.warc.io.gzarc;
 
 // RELEASE-STATUS: DIST
 
+import com.martiansoftware.jsap.*;
 import it.unimi.dsi.fastutil.io.BinIO;
 import it.unimi.dsi.fastutil.io.FastBufferedInputStream;
 import it.unimi.dsi.fastutil.longs.LongBigArrayBigList;
 import it.unimi.dsi.logging.ProgressLogger;
 import it.unimi.dsi.sux4j.util.EliasFanoMonotoneLongBigList;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.concurrent.TimeUnit;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.martiansoftware.jsap.JSAP;
-import com.martiansoftware.jsap.JSAPException;
-import com.martiansoftware.jsap.JSAPResult;
-import com.martiansoftware.jsap.Parameter;
-import com.martiansoftware.jsap.SimpleJSAP;
-import com.martiansoftware.jsap.UnflaggedOption;
 
 public class GZIPIndexer {
 	private static final Logger LOGGER = LoggerFactory.getLogger(GZIPIndexer.class);

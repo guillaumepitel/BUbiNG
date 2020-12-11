@@ -21,6 +21,12 @@ import it.unimi.di.law.warc.io.ParallelBufferedWarcWriter;
 import it.unimi.di.law.warc.records.HttpResponseWarcRecord;
 import it.unimi.di.law.warc.records.WarcHeader;
 import it.unimi.dsi.fastutil.io.FastBufferedOutputStream;
+import org.apache.commons.codec.binary.Hex;
+import org.apache.http.HttpResponse;
+import org.apache.http.message.BasicHeader;
+import org.apache.http.message.HeaderGroup;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.File;
@@ -28,14 +34,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Map;
-
-import org.apache.commons.codec.binary.Hex;
-import org.apache.http.Header;
-import org.apache.http.HttpResponse;
-import org.apache.http.message.BasicHeader;
-import org.apache.http.message.HeaderGroup;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 //RELEASE-STATUS: DIST
 

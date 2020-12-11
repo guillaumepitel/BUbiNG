@@ -1,14 +1,12 @@
 package it.unimi.di.law.bubing.util;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.OutputStream;
-
 import com.exensa.util.compression.HuffmanModel;
+import it.unimi.dsi.bits.Fast;
+import it.unimi.dsi.fastutil.bytes.ByteArrayList;
+import it.unimi.dsi.util.XoRoShiRo128PlusRandom;
 import org.apache.commons.lang.BooleanUtils;
+
+import java.io.*;
 
 /*
  * Copyright (C) 2013-2017 Paolo Boldi, Massimo Santini, and Sebastiano Vigna
@@ -25,11 +23,6 @@ import org.apache.commons.lang.BooleanUtils;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-
-import it.unimi.dsi.bits.Fast;
-import it.unimi.dsi.fastutil.bytes.ByteArrayList;
-import it.unimi.dsi.util.XoRoShiRo128PlusRandom;
 
 //RELEASE-STATUS: DIST
 

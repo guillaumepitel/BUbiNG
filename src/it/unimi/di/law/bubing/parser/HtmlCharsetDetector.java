@@ -1,7 +1,7 @@
 package it.unimi.di.law.bubing.parser;
 
-import com.ibm.icu.text.ICUCharsetDetector;
 import com.ibm.icu.text.CharsetMatch;
+import com.ibm.icu.text.ICUCharsetDetector;
 import it.unimi.di.law.bubing.util.NoOpDecoder;
 import net.htmlparser.jericho.*;
 

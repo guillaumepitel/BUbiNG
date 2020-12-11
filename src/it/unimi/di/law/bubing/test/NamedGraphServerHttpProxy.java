@@ -1,5 +1,20 @@
 package it.unimi.di.law.bubing.test;
 
+import com.google.common.base.Charsets;
+import com.martiansoftware.jsap.*;
+import it.unimi.di.law.bubing.util.ByteArrayCharSequence;
+import it.unimi.di.law.bubing.util.MurmurHash3;
+import it.unimi.dsi.Util;
+import it.unimi.dsi.fastutil.io.BinIO;
+import it.unimi.dsi.fastutil.io.FastBufferedInputStream;
+import it.unimi.dsi.fastutil.io.FastBufferedOutputStream;
+import it.unimi.dsi.lang.MutableString;
+import it.unimi.dsi.util.StringMap;
+import it.unimi.dsi.util.XoRoShiRo128PlusRandom;
+import it.unimi.dsi.webgraph.ImmutableGraph;
+import org.apache.commons.lang.RandomStringUtils;
+import org.apache.commons.lang.StringEscapeUtils;
+
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
@@ -11,19 +26,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
-
-import org.apache.commons.lang.RandomStringUtils;
-import org.apache.commons.lang.StringEscapeUtils;
-
-import com.google.common.base.Charsets;
-import com.martiansoftware.jsap.FlaggedOption;
-import com.martiansoftware.jsap.JSAP;
-import com.martiansoftware.jsap.JSAPException;
-import com.martiansoftware.jsap.JSAPResult;
-import com.martiansoftware.jsap.Parameter;
-import com.martiansoftware.jsap.SimpleJSAP;
-import com.martiansoftware.jsap.Switch;
-import com.martiansoftware.jsap.UnflaggedOption;
 
 /*
  * Copyright (C) 2010-2017 Paolo Boldi, Massimo Santini, and Sebastiano Vigna
@@ -40,17 +42,6 @@ import com.martiansoftware.jsap.UnflaggedOption;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-import it.unimi.di.law.bubing.util.ByteArrayCharSequence;
-import it.unimi.di.law.bubing.util.MurmurHash3;
-import it.unimi.dsi.Util;
-import it.unimi.dsi.fastutil.io.BinIO;
-import it.unimi.dsi.fastutil.io.FastBufferedInputStream;
-import it.unimi.dsi.fastutil.io.FastBufferedOutputStream;
-import it.unimi.dsi.lang.MutableString;
-import it.unimi.dsi.util.StringMap;
-import it.unimi.dsi.util.XoRoShiRo128PlusRandom;
-import it.unimi.dsi.webgraph.ImmutableGraph;
 
 //RELEASE-STATUS: DIST
 

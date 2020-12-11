@@ -1,5 +1,9 @@
 package it.unimi.di.law.warc.filters;
 
+import it.unimi.di.law.bubing.util.BURL;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntArrays;
+
 import java.net.URI;
 import java.util.Arrays;
 import java.util.regex.Matcher;
@@ -20,10 +24,6 @@ import java.util.regex.Pattern;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-import it.unimi.di.law.bubing.util.BURL;
-import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.ints.IntArrays;
 
 // RELEASE-STATUS: DIST
 

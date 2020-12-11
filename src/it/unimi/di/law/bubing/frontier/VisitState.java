@@ -16,9 +16,7 @@ package it.unimi.di.law.bubing.frontier;
  * limitations under the License.
  */
 
-import com.exensa.util.compression.HuffmanModel;
-import com.exensa.wdl.protobuf.url.MsgURL;
-import com.google.protobuf.ByteString;
+import crawlercommons.robots.SimpleRobotRules;
 import it.unimi.di.law.bubing.Agent;
 import it.unimi.di.law.bubing.RuntimeConfiguration;
 import it.unimi.di.law.bubing.frontier.comm.PulsarHelper;
@@ -26,22 +24,16 @@ import it.unimi.di.law.bubing.util.BURL;
 import it.unimi.di.law.bubing.util.URLRespectsRobots;
 import it.unimi.di.law.bubing.util.Util;
 import it.unimi.dsi.fastutil.objects.ObjectArrayFIFOQueue;
-import it.unimi.dsi.fastutil.objects.ObjectIterator;
-import it.unimi.dsi.fastutil.shorts.Short2ShortMap;
-import it.unimi.dsi.fastutil.shorts.Short2ShortOpenHashMap;
+import org.apache.http.cookie.Cookie;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Reader;
 import java.io.Serializable;
 import java.lang.reflect.Field;
-import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
 import java.util.concurrent.Delayed;
 import java.util.concurrent.TimeUnit;
-
-import org.apache.http.cookie.Cookie;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import com.exensa.wdl.protobuf.frontier.MsgFrontier;
 
 //RELEASE-STATUS: DIST
 
@@ -87,7 +79,7 @@ public class VisitState implements Delayed, Serializable {
 	private static final long serialVersionUID = 1L;
 
 	/** A special path marking a <code>robots.txt</code> refresh request. */
-	public final static byte[] ROBOTS_PATH = PulsarHelper.toZ(PulsarHelper.toASCII( "/robots.txt" ));
+	public final static byte[] ROBOTS_PATH = PulsarHelper.toMinimalCrawlRequestSerialized(PulsarHelper.minimalCrawlRequestFromPathQuery( "/robots.txt" ));
 
 	/** A singleton empty cookie array. */
 	public final static Cookie[] EMPTY_COOKIE_ARRAY = {};
@@ -103,8 +95,8 @@ public class VisitState implements Delayed, Serializable {
 	public volatile long nextFetch;
 	/** {@link System#currentTimeMillis()} when we fetched the robots we are {@linkplain #robotsFilter caching}. */
 	public volatile long lastRobotsFetch;
-	/** The robots-forbidden prefixes we are caching, as returned from the {@link URLRespectsRobots#parseRobotsReader(Reader, String)} method. */
-	public volatile char[][] robotsFilter;
+	/** The robots-forbidden prefixes we are caching, as returned from the {@link URLRespectsRobots#parseRobotsReader(Reader, String,org.apache.commons.lang.mutable.MutableInt)} method. */
+	public volatile SimpleRobotRules robotsFilter;
 	/** The workbench entry this visit state belongs to. Note that this field is always
 	 * non-{@code null}, regardless of whether this visit state is actually in the queue of
 	 * its workbench entry, unless {@link #lastExceptionClass} is not {@code null}. */
@@ -123,13 +115,12 @@ public class VisitState implements Delayed, Serializable {
 	protected volatile transient boolean purgeRequired;
 	/** The path+queries that must be visited for this visit state. */
 	private final transient ObjectArrayFIFOQueue<byte[]> crawlRequests;
-	/** A map from term indices to counts for the pages of this host. This map is instantiated only if {@link RuntimeConfiguration#spamDetector} is not {@code null}. */
-	public final Short2ShortOpenHashMap termCount;
-	/** The number of calls performed to {@link #updateTermCount(Short2ShortMap)}. */
-	public volatile int termCountUpdates;
-	/** The spammicity score, if computed; -1, otherwise. */
-	public volatile float spammicity;
+	/** Number of pages fetched */
+	public volatile int nbFetched;
 
+
+	/** Specific crawl-delay */
+	public int crawlDelayMS;
 	/** Creates a visit state.
 	 *
 	 * @param schemeAuthority the scheme+authority of this {@link VisitState}.
@@ -139,10 +130,9 @@ public class VisitState implements Delayed, Serializable {
 		this.schemeAuthority = schemeAuthority;
 		cookies = EMPTY_COOKIE_ARRAY;
 		crawlRequests = new ObjectArrayFIFOQueue<>();
-		Frontier frontier = Agent.getFrontier();
-		termCount = frontier != null && frontier.rc.spamDetector == null ? null : new Short2ShortOpenHashMap();
-		spammicity = -1;
 		purgeRequired = false;
+		crawlDelayMS = 0;
+		nbFetched = 0;
 	}
 
 
@@ -313,6 +303,10 @@ public class VisitState implements Delayed, Serializable {
 		return array;
 	}
 
+	public void setCrawlDelayMS(int crawlDelayMS) {
+		this.crawlDelayMS = crawlDelayMS;
+	}
+
 	/** Empties this visit state of all the URLs that it contains. */
 	public synchronized void clear() {
 		while(! isEmpty()) dequeue(); // We cannot invoke crawlRequests.clear(), as counters would not be updated.
@@ -447,19 +441,5 @@ public class VisitState implements Delayed, Serializable {
 		field.set(this, new ObjectArrayFIFOQueue<byte[]>(size));
 
 		while(size-- != 0) crawlRequests.enqueue(Util.readByteArray(s));
-	}
-
-	private void updateTermCountEntry(Short2ShortMap.Entry e) {
-		final int oldValue = termCount.get(e.getShortKey());
-		termCount.put(e.getShortKey(), (short)Math.min(oldValue + e.getShortValue(), Short.MAX_VALUE));
-	}
-
-	public void updateTermCount(final Short2ShortMap termCount) {
-		termCountUpdates++;
-		// In case we have an open hash map, we use the fast iterator to reduce object creation.
-		if (termCount instanceof Short2ShortOpenHashMap)
-			for(ObjectIterator<Short2ShortMap.Entry> fastIterator = ((Short2ShortOpenHashMap)termCount).short2ShortEntrySet().fastIterator(); fastIterator.hasNext();)
-				updateTermCountEntry(fastIterator.next());
-		else for(Short2ShortMap.Entry e : termCount.short2ShortEntrySet()) updateTermCountEntry(e);
 	}
 }

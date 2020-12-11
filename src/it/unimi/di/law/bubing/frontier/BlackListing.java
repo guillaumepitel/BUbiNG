@@ -5,10 +5,10 @@ package it.unimi.di.law.bubing.frontier;
 import com.google.common.primitives.Ints;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import java.net.URI;
 import java.util.concurrent.locks.Lock;
 
-import static crawlercommons.domains.PaidLevelDomain.getPLD;
 import static it.unimi.di.law.bubing.util.HostHash.hostLongHash;
 
 public class BlackListing {

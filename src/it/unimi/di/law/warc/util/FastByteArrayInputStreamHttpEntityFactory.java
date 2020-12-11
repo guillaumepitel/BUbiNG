@@ -18,16 +18,14 @@ package it.unimi.di.law.warc.util;
 
 // RELEASE-STATUS: DIST
 
+import com.google.common.io.ByteStreams;
 import it.unimi.dsi.fastutil.io.FastByteArrayInputStream;
 import it.unimi.dsi.fastutil.io.FastByteArrayOutputStream;
-
-import java.io.IOException;
-import java.io.InputStream;
-
 import org.apache.http.HttpEntity;
 import org.apache.http.entity.HttpEntityWrapper;
 
-import com.google.common.io.ByteStreams;
+import java.io.IOException;
+import java.io.InputStream;
 
 /** An implementation of a {@link HttpEntityFactory} that returns an entity whose content is buffered using a {@link FastByteArrayInputStream}. */
 public class FastByteArrayInputStreamHttpEntityFactory implements HttpEntityFactory {

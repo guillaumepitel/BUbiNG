@@ -18,12 +18,11 @@ package it.unimi.di.law.bubing.frontier.dns;
 
 import it.unimi.di.law.bubing.RuntimeConfiguration;
 import it.unimi.di.law.bubing.frontier.Frontier;
+import org.apache.http.conn.DnsResolver;
+import org.xbill.DNS.Address;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-
-import org.apache.http.conn.DnsResolver;
-import org.xbill.DNS.Address;
 
 //RELEASE-STATUS: DIST
 

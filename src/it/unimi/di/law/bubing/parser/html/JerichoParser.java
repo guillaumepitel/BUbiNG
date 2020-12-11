@@ -12,7 +12,9 @@
 
 package it.unimi.di.law.bubing.parser.html;
 
-import net.htmlparser.jericho.*;
+import net.htmlparser.jericho.Segment;
+import net.htmlparser.jericho.StartTagType;
+import net.htmlparser.jericho.StreamedSource;
 
 
 public final class JerichoParser

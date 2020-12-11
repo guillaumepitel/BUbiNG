@@ -94,7 +94,7 @@ public class Cld2Tool
                 return detectImpl( byteBuffer.array(), byteBuffer.remaining(), hintLang, tld );
             }
             catch ( java.nio.charset.CharacterCodingException e ) {
-                LOGGER.warn( "Failed to encode to UTF-8", e );
+                LOGGER.warn( "Failed to encode to UTF-8, the Charset was probably wrong");
                 return new Cld2Result( "Unknown", "Unknown", 0.0 );
             }
         }

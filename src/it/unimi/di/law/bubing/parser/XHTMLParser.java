@@ -1,13 +1,15 @@
 package it.unimi.di.law.bubing.parser;
 
-import com.kohlschutter.boilerpipe.extractors.ArticleExtractor;
+import com.kohlschutter.boilerpipe.extractors.KeepEverythingExtractor;
 import it.unimi.di.law.bubing.parser.html.*;
 import it.unimi.di.law.bubing.util.BURL;
 import it.unimi.di.law.warc.filters.URIResponse;
 import it.unimi.dsi.fastutil.io.InspectableFileCachedInputStream;
 import net.htmlparser.jericho.HTMLElementName;
 import net.htmlparser.jericho.StreamedSource;
-import org.apache.http.*;
+import org.apache.http.Header;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,7 +21,9 @@ import org.xml.sax.SAXException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 
 
 public final class XHTMLParser implements Parser<Void>
@@ -51,6 +55,13 @@ public final class XHTMLParser implements Parser<Void>
 
   @Override
   public ParseData parse( final URI uri, final HttpResponse httpResponse ) throws IOException {
+    if (httpResponse.getStatusLine().getStatusCode()/100 == 2)
+      return parse2XX(uri, httpResponse);
+    else
+      return parseXXX(uri, httpResponse);
+  }
+
+  private ParseData parse2XX( final URI uri, final HttpResponse httpResponse ) throws IOException {
     init( uri );
 
     pageInfo.extractFromHttpHeader( httpResponse );
@@ -62,7 +73,7 @@ public final class XHTMLParser implements Parser<Void>
 
     final HtmlDigestContentHandler digestContentHandler = new HtmlDigestContentHandler( digestAppendable );
     final HtmlPureTextContentHandler pureTextContentHandler = new HtmlPureTextContentHandler( pureTextAppendable );
-    final HtmlBoilerpipeHandler boilerpipeHandler = new HtmlBoilerpipeHandler( ArticleExtractor.INSTANCE, MAX_BODY_LENGTH );
+    final HtmlBoilerpipeHandler boilerpipeHandler = new HtmlBoilerpipeHandler( KeepEverythingExtractor.INSTANCE, MAX_BODY_LENGTH );
     final ContentHandler htmlContentHandler = new HtmlTeeContentHandler( digestContentHandler, pureTextContentHandler, boilerpipeHandler );
     final LinksHandler linksHandler = new LinksHandler( pageInfo.getLinks(), MAX_ANCHOR_TEXT_LENGTH );
     final XhtmlContentHandler xhtmlContentHandler = new XhtmlContentHandler( metadata, htmlContentHandler, linksHandler );
@@ -103,6 +114,35 @@ public final class XHTMLParser implements Parser<Void>
       digestAppendable.digest(),
       pureTextAppendable.getContent(),
       boilerpipeHandler.getContent(),
+      rewritten,
+      allLinks
+    );
+  }
+
+
+  private ParseData parseXXX( final URI uri, final HttpResponse httpResponse ) throws IOException {
+    init( uri );
+
+    pageInfo.extractFromHttpHeader( httpResponse );
+    pageInfo.extractFromMetas( httpResponse );
+    pageInfo.extractFromHtml( httpResponse, buffer );
+
+    updateDigestForRedirection( httpResponse );
+    final List<HTMLLink> allLinks = new ArrayList<>();
+    allLinks.addAll( pageInfo.getHeaderLinks() );
+    allLinks.addAll( pageInfo.getRedirectLinks() );
+    allLinks.addAll( pageInfo.getLinks() );
+
+    final URI baseUri = uri;
+
+    return new ParseData(
+      baseUri,
+      metadata.get( "title" ),
+      pageInfo,
+      metadata,
+      digestAppendable.digest(),
+      pureTextAppendable.getContent(),
+      new StringBuilder(),
       rewritten,
       allLinks
     );

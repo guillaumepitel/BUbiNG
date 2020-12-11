@@ -1,10 +1,18 @@
 package it.unimi.di.law.warc.filters;
 
-import java.lang.reflect.Method;
-import java.net.URI;
-
+import it.unimi.di.law.bubing.util.FetchData;
+import it.unimi.di.law.bubing.util.Link;
+import it.unimi.di.law.warc.filters.parser.ParseException;
+import it.unimi.di.law.warc.records.HttpResponseWarcRecord;
+import it.unimi.di.law.warc.records.WarcRecord;
+import it.unimi.di.law.warc.records.WarcRecord.Type;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import it.unimi.dsi.lang.FlyweightPrototype;
 import org.apache.commons.lang.StringUtils;
 import org.apache.http.HttpResponse;
+
+import java.lang.reflect.Method;
+import java.net.URI;
 
 /*
  * Copyright (C) 2004-2017 Paolo Boldi, Massimo Santini, and Sebastiano Vigna
@@ -22,15 +30,6 @@ import org.apache.http.HttpResponse;
  * limitations under the License.
  */
 
-import it.unimi.di.law.bubing.util.FetchData;
-import it.unimi.di.law.bubing.util.Link;
-import it.unimi.di.law.warc.filters.parser.ParseException;
-import it.unimi.di.law.warc.records.HttpResponseWarcRecord;
-import it.unimi.di.law.warc.records.WarcRecord;
-import it.unimi.di.law.warc.records.WarcRecord.Type;
-import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
-import it.unimi.dsi.lang.FlyweightPrototype;
-
 // RELEASE-STATUS: DIST
 
 /** A collection of static methods to deal with {@link Filter filters}. */
@@ -47,7 +46,7 @@ public class Filters {
 					HostEndsWith.class, HostEndsWithOneOf.class, HostEquals.class,
 					IsHttpResponse.class, IsProbablyBinary.class, PathEndsWithOneOf.class,
 					ResponseMatches.class, SchemeEquals.class, StatusCategory.class, URLEquals.class,
-					URLMatchesRegex.class, URLShorterThan.class, LanguageIsOneOf.class
+					URLMatchesRegex.class, URLContainsOneOf.class, URLShorterThan.class, LanguageIsOneOf.class
 					}
 			);
 

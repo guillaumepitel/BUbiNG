@@ -1,5 +1,12 @@
 package it.unimi.di.law.bubing.util;
 
+import it.unimi.dsi.fastutil.Size64;
+import it.unimi.dsi.fastutil.bytes.ByteArrays;
+import it.unimi.dsi.fastutil.io.BinIO;
+import it.unimi.dsi.fastutil.io.FastByteArrayInputStream;
+import it.unimi.dsi.fastutil.io.FastByteArrayOutputStream;
+import it.unimi.dsi.io.ByteDiskQueue;
+
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
@@ -20,13 +27,6 @@ import java.nio.ByteBuffer;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-import it.unimi.dsi.fastutil.Size64;
-import it.unimi.dsi.fastutil.bytes.ByteArrays;
-import it.unimi.dsi.fastutil.io.BinIO;
-import it.unimi.dsi.fastutil.io.FastByteArrayInputStream;
-import it.unimi.dsi.fastutil.io.FastByteArrayOutputStream;
-import it.unimi.dsi.io.ByteDiskQueue;
 
 //RELEASE-STATUS: DIST
 

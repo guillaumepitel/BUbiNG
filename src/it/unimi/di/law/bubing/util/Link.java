@@ -16,9 +16,9 @@ package it.unimi.di.law.bubing.util;
  * limitations under the License.
  */
 
-import java.net.URI;
-
 import it.unimi.di.law.bubing.StartupConfiguration;
+
+import java.net.URI;
 
 // RELEASE-STATUS: DIST
 

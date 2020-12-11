@@ -18,9 +18,6 @@ package it.unimi.di.law.warc.util;
 
 // RELEASE-STATUS: DIST
 
-import java.util.Arrays;
-import java.util.Locale;
-
 import org.apache.http.HttpEntity;
 import org.apache.http.ProtocolVersion;
 import org.apache.http.RequestLine;
@@ -32,6 +29,9 @@ import org.apache.http.message.BasicRequestLine;
 import org.apache.http.message.BasicStatusLine;
 import org.apache.http.util.EncodingUtils;
 import org.apache.http.util.EntityUtils;
+
+import java.util.Arrays;
+import java.util.Locale;
 
 /** Mock implementations of some {@link AbstractHttpMessage}. */
 public class StringHttpMessages {

@@ -1,5 +1,30 @@
 package it.unimi.di.law.bubing;
 
+import com.martiansoftware.jsap.ParseException;
+import com.martiansoftware.jsap.stringparsers.IntSizeStringParser;
+import com.martiansoftware.jsap.stringparsers.LongSizeStringParser;
+import it.unimi.di.law.bubing.frontier.DNSThread;
+import it.unimi.di.law.bubing.frontier.FetchingThread;
+import it.unimi.di.law.bubing.frontier.Frontier;
+import it.unimi.di.law.bubing.frontier.ParsingThread;
+import it.unimi.di.law.bubing.frontier.dns.DnsJavaResolver;
+import it.unimi.di.law.bubing.parser.Parser;
+import it.unimi.di.law.bubing.store.Store;
+import it.unimi.di.law.bubing.util.ByteArrayDiskQueue;
+import it.unimi.di.law.bubing.util.FetchData;
+import it.unimi.di.law.bubing.util.Link;
+import it.unimi.di.law.warc.filters.Filter;
+import it.unimi.di.law.warc.filters.URIResponse;
+import it.unimi.di.law.warc.filters.parser.FilterParser;
+import it.unimi.dsi.fastutil.io.InspectableFileCachedInputStream;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.lang.ObjectParser;
+import org.apache.commons.configuration.*;
+import org.apache.http.client.config.CookieSpecs;
+import org.apache.http.conn.DnsResolver;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -10,25 +35,10 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.URI;
-import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.StringTokenizer;
 import java.util.concurrent.TimeUnit;
-
-import org.apache.commons.configuration.CompositeConfiguration;
-import org.apache.commons.configuration.Configuration;
-import org.apache.commons.configuration.ConfigurationException;
-import org.apache.commons.configuration.ConfigurationUtils;
-import org.apache.commons.configuration.PropertiesConfiguration;
-import org.apache.http.client.config.CookieSpecs;
-import org.apache.http.conn.DnsResolver;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.martiansoftware.jsap.ParseException;
-import com.martiansoftware.jsap.stringparsers.IntSizeStringParser;
-import com.martiansoftware.jsap.stringparsers.LongSizeStringParser;
 
 /*
  * Copyright (C) 2012-2017 Paolo Boldi, Massimo Santini, and Sebastiano Vigna
@@ -45,27 +55,6 @@ import com.martiansoftware.jsap.stringparsers.LongSizeStringParser;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-
-import it.unimi.di.law.bubing.categories.TextClassifier;
-import it.unimi.di.law.bubing.frontier.DNSThread;
-import it.unimi.di.law.bubing.frontier.FetchingThread;
-import it.unimi.di.law.bubing.frontier.Frontier;
-import it.unimi.di.law.bubing.frontier.ParsingThread;
-import it.unimi.di.law.bubing.frontier.dns.DnsJavaResolver;
-import it.unimi.di.law.bubing.parser.Parser;
-import it.unimi.di.law.bubing.spam.SpamDetector;
-import it.unimi.di.law.bubing.store.Store;
-import it.unimi.di.law.bubing.util.ByteArrayDiskQueue;
-import it.unimi.di.law.bubing.util.FetchData;
-import it.unimi.di.law.bubing.util.Link;
-import it.unimi.di.law.warc.filters.Filter;
-import it.unimi.di.law.warc.filters.URIResponse;
-import it.unimi.di.law.warc.filters.parser.FilterParser;
-import it.unimi.dsi.fastutil.io.InspectableFileCachedInputStream;
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
-import it.unimi.dsi.lang.ObjectParser;
-import it.unimi.dsi.util.BloomFilter;
 
 //RELEASE-STATUS: DIST
 
@@ -155,22 +144,8 @@ public class StartupConfiguration {
 	@Target(ElementType.FIELD)
 	public @interface DnsResolverSpecification{}
 
-	/** A marker for the classifier class specification. */
-	@Retention(RetentionPolicy.RUNTIME)
-	@Target(ElementType.FIELD)
-	public @interface ClassifierSpecification{}
-
 	/** The name of this agent; it must be unique within its group. */
 	public String name;
-
-	/** The group of this agent; all agents belonging to the same group will coordinate their crawling activity. */
-	public String group;
-
-	/** The weight of this agent; agents are assigned a part of the crawl that is proportional to their weight. */
-	public int weight;
-
-	/** The maximum number of URLs we shall download from each scheme+authority. */
-	public int maxUrlsPerSchemeAuthority;
 
 	/** The maximum number of Scheme://Authority we shall keep in the Workbench for a given IP address at any given moment. */
 	@OptionalSpecification(value="100")
@@ -228,31 +203,10 @@ public class StartupConfiguration {
 	@TimeSpecification
 	public long ipDelay;
 
-	/** An attenuation factor for the multiple-agent IP delay mechanism.
-	 *
-	 * <p>BUbiNG uses a simple model to predict how many agents are accessing the same IP: if
-	 * an IP address has <i>k</i> &gt; 1 associated hosts, BUbiNG predicts that
-	 * a fraction <i>k</i>/(<i>k</i> + 1) of the known agents are accessing that IP address. When {@link #ipDelayFactor} = 0, the
-	 * {@link #ipDelay} is used as such. When {@link #ipDelayFactor} = 1, the IP delay is multiplied
-	 * by <i>k</i>/(<i>k</i> + 1) (i.e., if there are two hosts with the same IP we predict that
-	 * half of the agents are crawling the same IP). In general, the IP delay is multiplied
-	 * by {@link #ipDelayFactor} &middot; <i>k</i>/(<i>k</i> + 1) &middot; {@link Agent#getKnownCount()},
-	 * so this parameter can be used to tune this behaviour. Note that in any case BUbiNG will wait at least
-	 * {@link #ipDelay}.
-	 */
-	@OptionalSpecification(value="0")
-	public double ipDelayFactor;
-
-	/** The maximum number of URLs to crawl. */
-	public long maxUrls;
-
-	/** The precision of the {@linkplain BloomFilter Bloom filter} used for duplicate detection (usually, at least 1/{@link #maxUrls}). */
-	public double bloomFilterPrecision;
-
-	/** A URL from which BUbiNG will start crawling. If it starts with <code>file:</code>,
-	 * it is assumed to point to an ASCII file containing on each line a seed URL. */
-	@ManyValuesSpecification
-	public String[] seed;
+	/** The time to live of a crawl request */
+	@OptionalSpecification(value="0") // default : no crawl request TTL
+	@TimeSpecification
+	public long crawlRequestTTL;
 
 	/** An IPv4 address that should be blacklisted (i.e., not crawled). If it starts with <code>file:</code>,
 	 * it is assumed to point to an ASCII file containing on each line a blacklisted IPv4 address. */
@@ -274,6 +228,25 @@ public class StartupConfiguration {
 	@TimeSpecification
 	public int connectionTimeout;
 
+	/** The dns query timeout in milliseconds. */
+	@OptionalSpecification(value="5000")
+	@TimeSpecification
+	public int dnsTimeout;
+
+	/** The maximum time to first byte in milliseconds. */
+	@OptionalSpecification(value="1500")
+	@TimeSpecification
+	public int maximumTimeToFirstByte;
+
+	/** The maximum fetch duration in milliseconds. */
+	@OptionalSpecification(value="15000")
+	@TimeSpecification
+	public int maximumFetchDuration;
+
+	/** The minimum download speed bytes/s. */
+	@OptionalSpecification(value="10")
+	public int minimumDownloadSpeed;
+
 	/** Size of the buffer for {@link InspectableFileCachedInputStream} instances, in bytes. Each {@linkplain FetchingThread fetching thread} holds such a buffer. */
 	public int fetchDataBufferByteSize;
 
@@ -285,6 +258,14 @@ public class StartupConfiguration {
 	@OptionalSpecification(value="8080")
 	public int proxyPort;
 
+	/** The robot proxy host, if a proxy should be used; an empty value means that the proxy should not be set. */
+	@OptionalSpecification(value="")
+	public String robotProxyHost;
+
+	/** The robot proxy port, meaningful only if {@link #robotProxyHost} is not empty. */
+	@OptionalSpecification(value="8080")
+	public int robotProxyPort;
+
 	/** The cookie policy to be used. See {@link CookieSpecs}. */
 	public String cookiePolicy;
 
@@ -293,6 +274,9 @@ public class StartupConfiguration {
 
 	/** The User Agent header used for HTTP requests. */
 	public String userAgent;
+
+	/** The User Agent Id used for robots.txt. */
+	public String userAgentId;
 
 	/** The From header used for HTTP requests. It can be empty, in which case no <code>From</code> header will be emitted. */
 	@OptionalSpecification(value="")
@@ -336,9 +320,6 @@ public class StartupConfiguration {
 
 	/** Whether we should start in paused state. */
 	public boolean startPaused;
-
-	/** Whether we should reinit the schemeAuthorty countts on restart. */
-	public boolean reinitCounts;
 
 	/** The class used to {@link Store} the resources. */
 	@StoreSpecification
@@ -402,21 +383,6 @@ public class StartupConfiguration {
 	@OptionalSpecification(value="1Gi")
 	public long virtualizerMaxByteSize;
 
-	/** The maximum size of the URL cache in bytes. */
-	public long urlCacheMaxByteSize;
-
-	/** The number of slots in the sieve. A flush happen when this space is filled with 64-bit hashes. Note that due the needs
-	 * of indirect sorting 12 bytes will be allocated for each slot. */
-	public int sieveSize;
-
-	/** The size of the two buffers used to read the 64-bit hashes stored by the sieve during flushes. Will be allocated using {@link ByteBuffer#allocateDirect(int)}. */
-	@OptionalSpecification(value="64Ki")
-	public int sieveStoreIOBufferByteSize;
-
-	/** The I/O buffer used to write the auxiliary file (containing URLs) and to read it back during flushes. */
-	@OptionalSpecification(value="64Ki")
-	public int sieveAuxFileIOBufferByteSize;
-
 	/** A {@link DnsResolver}.
 	 * @see it.unimi.di.law.bubing.frontier.dns
 	 */
@@ -444,28 +410,6 @@ public class StartupConfiguration {
 	/** Whether this is a crawler on priority line. */
 	public boolean priorityCrawl;
 
-	/** An optional {@link SpamDetector}; this {@link URI} should point to a serialized instance. */
-	@OptionalSpecification(value="")
-	public String spamDetectorUri;
-
-	/** The number of pages per scheme+authority after which spam detection is performed. */
-	@OptionalSpecification(value="100")
-	public int spamDetectionThreshold;
-
-	/** The number of pages per scheme+authority after which spam detection is performed again periodically. If {@link Integer#MAX_VALUE}, spam detection is performed only
-	 * after {@link #spamDetectionThreshold} pages. */
-	@OptionalSpecification(value="2147483647")
-	public int spamDetectionPeriodicity;
-
-	/** The class used to classify page content. */
-	@ClassifierSpecification
-	@OptionalSpecification(value="it.unimi.di.law.bubing.categories.NullClassifier")
-	public Class<? extends TextClassifier> classifierClass;
-
-	/** classifier config file name */
-	@OptionalSpecification(value="")
-	public String textClassifierConfigFileName;
-
 	/* Checks */
 
 	@SuppressWarnings("unused")
@@ -476,15 +420,6 @@ public class StartupConfiguration {
 	@SuppressWarnings("unused")
 	private void checkIpDelay() throws ConfigurationException {
 		if (ipDelay < 100) LOGGER.warn("You selected a small IP delay (" + ipDelay + "); this is going to disturb people");
-	}
-
-	@SuppressWarnings("unused")
-	private void checkBloomFilterPrecision() throws ConfigurationException {
-		if (bloomFilterPrecision > 1) {
-			LOGGER.error("Bloom-filter precision must be smaller than one");
-			throw new IllegalArgumentException("Bloom-filter precision must be smaller than one");
-		}
-		if (bloomFilterPrecision > 1E-6) LOGGER.warn("You selected a low Bloom-filter precision (" + bloomFilterPrecision + "); you are going to get a lot of false duplicates");
 	}
 
 	/** If true, {@link #checkRootDir()} has already been called. This flag is necessary because we cannot guarantee
@@ -614,8 +549,6 @@ public class StartupConfiguration {
 					else if (type == String[].class)
 						f.set(this, configuration.getStringArray(name));
 					else if (f.getAnnotation(StoreSpecification.class) != null)
-						f.set(this, Class.forName(value));
-					else if (f.getAnnotation(ClassifierSpecification.class) != null)
 						f.set(this, Class.forName(value));
 					else if (f.getAnnotation(DnsResolverSpecification.class) != null)
 						f.set(this, Class.forName(value));

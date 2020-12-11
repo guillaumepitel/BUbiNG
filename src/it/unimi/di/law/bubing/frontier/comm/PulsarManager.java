@@ -99,7 +99,7 @@ public final class PulsarManager implements AutoCloseable
     }
 
     public Producer<byte[]> get( final MsgURL.Key urlKey ) {
-      return get( partitionScheme.getHostPartition(urlKey) );
+      return get( partitionScheme.getPartition(urlKey) );
     }
 
     public void close() throws InterruptedException {
@@ -173,9 +173,10 @@ public final class PulsarManager implements AutoCloseable
       final ProducerBuilder<byte[]> producerBuilder = client.newProducer()
         .enableBatching( true )
         .batchingMaxPublishDelay( 100, TimeUnit.MILLISECONDS )
+        .batchingMaxMessages(16)
         .blockIfQueueFull( true )
-        .maxPendingMessages(2048)
-        .maxPendingMessagesAcrossPartitions(32768)
+        .maxPendingMessages(128)
+        .maxPendingMessagesAcrossPartitions(1024)
         .sendTimeout( 30000, TimeUnit.MILLISECONDS )
         .compressionType( CompressionType.ZSTD )
         .producerName( rc.name );
@@ -278,8 +279,8 @@ public final class PulsarManager implements AutoCloseable
 
       future = client.newConsumer()
         .subscriptionType(SubscriptionType.Key_Shared)
-        //.receiverQueueSize(512)
-        //.maxTotalReceiverQueueSizeAcrossPartitions(4096)
+        .receiverQueueSize(64)
+        .maxTotalReceiverQueueSizeAcrossPartitions(4096)
         //.acknowledgmentGroupTime(500, TimeUnit.MILLISECONDS)
         .messageListener(new CrawlRequestsReceiver(frontier))
         .subscriptionName("toCrawlSubscription")

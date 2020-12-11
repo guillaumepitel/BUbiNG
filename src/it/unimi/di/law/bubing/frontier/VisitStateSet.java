@@ -16,11 +16,12 @@ package it.unimi.di.law.bubing.frontier;
  * limitations under the License.
  */
 
-import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import it.unimi.di.law.bubing.util.MurmurHash3;
 import it.unimi.dsi.fastutil.Hash;
 
 import java.util.Arrays;
+
+import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 
 //RELEASE-STATUS: DIST
 

@@ -16,14 +16,13 @@ package it.unimi.di.law.warc.filters;
  * limitations under the License.
  */
 
+import com.google.common.base.Splitter;
+import com.google.common.collect.Iterables;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 
 import java.net.URI;
 import java.util.Arrays;
 import java.util.Set;
-
-import com.google.common.base.Splitter;
-import com.google.common.collect.Iterables;
 
 // RELEASE-STATUS: DIST
 

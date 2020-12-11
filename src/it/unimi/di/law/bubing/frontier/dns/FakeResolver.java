@@ -17,11 +17,10 @@ package it.unimi.di.law.bubing.frontier.dns;
  */
 
 import it.unimi.di.law.bubing.frontier.Frontier;
+import org.apache.http.conn.DnsResolver;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-
-import org.apache.http.conn.DnsResolver;
 
 //RELEASE-STATUS: DIST
 

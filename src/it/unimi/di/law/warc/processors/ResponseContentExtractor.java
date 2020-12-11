@@ -21,12 +21,11 @@ package it.unimi.di.law.warc.processors;
 import it.unimi.di.law.warc.processors.ParallelFilteredProcessorRunner.Processor;
 import it.unimi.di.law.warc.records.HttpResponseWarcRecord;
 import it.unimi.di.law.warc.records.WarcRecord;
-
-import java.io.IOException;
-
 import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
 
 public class ResponseContentExtractor implements Processor<String> {
 	private static final Logger LOGGER = LoggerFactory.getLogger(ResponseContentExtractor.class);

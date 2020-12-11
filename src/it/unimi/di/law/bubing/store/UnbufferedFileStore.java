@@ -22,6 +22,9 @@ import it.unimi.di.law.warc.io.UncompressedWarcWriter;
 import it.unimi.di.law.warc.io.WarcWriter;
 import it.unimi.di.law.warc.records.HttpResponseWarcRecord;
 import it.unimi.di.law.warc.records.WarcHeader;
+import org.apache.commons.codec.binary.Hex;
+import org.apache.http.HttpResponse;
+import org.apache.http.message.HeaderGroup;
 
 import java.io.Closeable;
 import java.io.File;
@@ -29,10 +32,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Map;
-
-import org.apache.commons.codec.binary.Hex;
-import org.apache.http.HttpResponse;
-import org.apache.http.message.HeaderGroup;
 
 //RELEASE-STATUS: DIST
 

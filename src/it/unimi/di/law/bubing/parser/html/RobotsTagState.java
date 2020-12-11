@@ -2,6 +2,7 @@ package it.unimi.di.law.bubing.parser.html;
 
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 
+import java.util.Locale;
 import java.util.regex.Pattern;
 
 
@@ -36,7 +37,7 @@ public final class RobotsTagState
   }
 
   public RobotsTagState add( final String line ) {
-    for ( final String s : SPLIT_PATTERN.split( line.trim().toLowerCase()) ) {
+    for ( final String s : SPLIT_PATTERN.split( line.trim().toLowerCase(Locale.ROOT) ) ) {
       if ( ALL_TAGS.contains(s) )
         state.add( s );
       else

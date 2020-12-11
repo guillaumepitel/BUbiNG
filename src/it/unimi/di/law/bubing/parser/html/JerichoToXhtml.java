@@ -13,17 +13,17 @@
 package it.unimi.di.law.bubing.parser.html;
 
 import net.htmlparser.jericho.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.xml.sax.Attributes;
 import org.xml.sax.ContentHandler;
 import org.xml.sax.SAXException;
-import org.xml.sax.Attributes;
 import org.xml.sax.helpers.AttributesImpl;
 
 import java.io.IOException;
-import java.util.Stack;
-import java.util.HashSet;
 import java.util.Arrays;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.HashSet;
+import java.util.Stack;
 
 import static net.htmlparser.jericho.HTMLElementName.*;
 

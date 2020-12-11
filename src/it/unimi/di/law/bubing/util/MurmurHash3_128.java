@@ -2,7 +2,6 @@ package it.unimi.di.law.bubing.util;
 
 import com.google.common.primitives.Bytes;
 import com.google.common.primitives.Longs;
-import it.unimi.dsi.fastutil.bytes.ByteArrayList;
 
 /*
  * Copyright (C) 2012-2017 Paolo Boldi, Massimo Santini, and Sebastiano Vigna

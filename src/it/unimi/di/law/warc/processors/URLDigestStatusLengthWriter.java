@@ -1,5 +1,11 @@
 package it.unimi.di.law.warc.processors;
 
+import it.unimi.di.law.warc.processors.ParallelFilteredProcessorRunner.Writer;
+import it.unimi.di.law.warc.records.HttpResponseWarcRecord;
+import it.unimi.di.law.warc.records.WarcHeader;
+import it.unimi.di.law.warc.records.WarcHeader.Name;
+import it.unimi.di.law.warc.records.WarcRecord;
+
 import java.io.IOException;
 import java.io.PrintStream;
 
@@ -18,14 +24,7 @@ import java.io.PrintStream;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 // RELEASE-STATUS: DIST
-
-import it.unimi.di.law.warc.processors.ParallelFilteredProcessorRunner.Writer;
-import it.unimi.di.law.warc.records.HttpResponseWarcRecord;
-import it.unimi.di.law.warc.records.WarcHeader;
-import it.unimi.di.law.warc.records.WarcHeader.Name;
-import it.unimi.di.law.warc.records.WarcRecord;
 
 public class URLDigestStatusLengthWriter implements Writer<WarcRecord> {
 

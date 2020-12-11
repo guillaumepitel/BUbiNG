@@ -18,15 +18,15 @@ package it.unimi.di.law.warc.util;
 
 // RELEASE-STATUS: DIST
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-
 import org.apache.http.io.HttpTransportMetrics;
 import org.apache.http.io.SessionOutputBuffer;
 import org.apache.http.protocol.HTTP;
 import org.apache.http.util.CharArrayBuffer;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 
 /** A {@link SessionOutputBuffer} implementation that uses a byte array as a backing store. */
 public class ByteArraySessionOutputBuffer extends ByteArrayOutputStream implements SessionOutputBuffer {

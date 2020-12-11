@@ -17,13 +17,13 @@ package it.unimi.di.law.bubing.frontier;
  */
 
 
+import com.google.common.collect.Iterators;
+
 import java.util.Iterator;
 import java.util.concurrent.DelayQueue;
 import java.util.concurrent.Delayed;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-
-import com.google.common.collect.Iterators;
 
 //RELEASE-STATUS: DIST
 

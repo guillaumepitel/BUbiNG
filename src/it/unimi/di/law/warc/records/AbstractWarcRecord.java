@@ -1,5 +1,21 @@
 package it.unimi.di.law.warc.records;
 
+import com.google.common.io.ByteStreams;
+import it.unimi.di.law.bubing.util.BURL;
+import it.unimi.di.law.bubing.util.Util;
+import it.unimi.di.law.warc.io.WarcFormatException;
+import it.unimi.di.law.warc.util.BoundSessionInputBuffer;
+import it.unimi.di.law.warc.util.ByteArraySessionOutputBuffer;
+import it.unimi.dsi.util.XoRoShiRo128PlusRandomGenerator;
+import org.apache.http.Header;
+import org.apache.http.HeaderIterator;
+import org.apache.http.ProtocolVersion;
+import org.apache.http.message.AbstractHttpMessage;
+import org.apache.http.message.BasicLineFormatter;
+import org.apache.http.message.HeaderGroup;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -11,17 +27,6 @@ import java.util.Date;
 import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
-
-import org.apache.http.Header;
-import org.apache.http.HeaderIterator;
-import org.apache.http.ProtocolVersion;
-import org.apache.http.message.AbstractHttpMessage;
-import org.apache.http.message.BasicLineFormatter;
-import org.apache.http.message.HeaderGroup;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.io.ByteStreams;
 
 /*
  * Copyright (C) 2013-2017 Paolo Boldi, Massimo Santini, and Sebastiano Vigna
@@ -38,15 +43,7 @@ import com.google.common.io.ByteStreams;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 // RELEASE-STATUS: DIST
-
-import it.unimi.di.law.bubing.util.BURL;
-import it.unimi.di.law.bubing.util.Util;
-import it.unimi.di.law.warc.io.WarcFormatException;
-import it.unimi.di.law.warc.util.BoundSessionInputBuffer;
-import it.unimi.di.law.warc.util.ByteArraySessionOutputBuffer;
-import it.unimi.dsi.util.XoRoShiRo128PlusRandomGenerator;
 
 /** An abstract implementation of a basic {@link WarcRecord}. */
 public abstract class AbstractWarcRecord extends AbstractHttpMessage implements WarcRecord {

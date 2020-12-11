@@ -1,0 +1,13 @@
+startDelaySeconds: 15
+lowercaseOutputName: false
+lowercaseOutputLabelNames: false
+whitelistObjectNames: ["it.unimi.di.law.bubing:*"]
+#blacklistObjectNames: ["it.unimu.di.law.bubing:type=Agent,name=*Filter","it.unimi.di.law.bubing:type=Agent,name=*Outdegree","it.unimi.di.law.bubing:type=Agent,name=*Distribution"]
+rules:
+  - pattern: it.unimi.di.law.bubing<type=Agent, name=([-a-zA-Z0-9.]+)><>([^:]+)
+    name: bubing_$2
+    labels:
+      instance: "$1"
+    help: "Bubing metric $2"
+    type: GAUGE
+    attrNameSnakeCase: false

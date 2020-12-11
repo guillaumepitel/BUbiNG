@@ -15,11 +15,6 @@ package it.unimi.di.law.bubing.util.cld2;
  * limitations under the License.
  */
 
-import org.apache.commons.io.Charsets;
-
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
-
 /**
  * Enum with the values of the different encodings accepted by the CLD2 library.
  */

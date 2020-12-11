@@ -16,12 +16,12 @@ package it.unimi.di.law.bubing.store;
  * limitations under the License.
  */
 
+import org.apache.http.HttpResponse;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Map;
-
-import org.apache.http.HttpResponse;
 
 //RELEASE-STATUS: DIST
 

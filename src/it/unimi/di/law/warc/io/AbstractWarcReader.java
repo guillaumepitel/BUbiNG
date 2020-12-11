@@ -22,10 +22,6 @@ import it.unimi.di.law.warc.records.AbstractWarcRecord;
 import it.unimi.di.law.warc.records.WarcHeader;
 import it.unimi.di.law.warc.records.WarcRecord;
 import it.unimi.di.law.warc.util.BoundSessionInputBuffer;
-
-import java.io.IOException;
-import java.io.InputStream;
-
 import org.apache.http.Header;
 import org.apache.http.HttpException;
 import org.apache.http.ParseException;
@@ -41,6 +37,9 @@ import org.apache.http.message.ParserCursor;
 import org.apache.http.util.CharArrayBuffer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.io.InputStream;
 
 public abstract class AbstractWarcReader implements WarcReader {
 	private static final boolean VERSION = Boolean.parseBoolean(System.getProperty("it.unimi.di.law.warc.io.version", "true"));

@@ -19,6 +19,10 @@ package it.unimi.di.law.warc.records;
 // RELEASE-STATUS: DIST
 
 import it.unimi.di.law.warc.io.WarcFormatException;
+import org.apache.commons.lang.time.FastDateFormat;
+import org.apache.http.Header;
+import org.apache.http.message.BasicHeader;
+import org.apache.http.message.HeaderGroup;
 
 import java.text.DateFormat;
 import java.text.ParseException;
@@ -27,11 +31,6 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
 import java.util.UUID;
-
-import org.apache.commons.lang.time.FastDateFormat;
-import org.apache.http.Header;
-import org.apache.http.message.BasicHeader;
-import org.apache.http.message.HeaderGroup;
 
 /**
  * A class used to represent WARC headers, with a set of static methods to handle them.

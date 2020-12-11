@@ -18,13 +18,13 @@ package it.unimi.di.law.warc.util;
 
 // RELEASE-STATUS: DIST
 
-import java.io.IOException;
-
 import org.apache.commons.io.input.CountingInputStream;
 import org.apache.http.impl.io.ContentLengthInputStream;
 import org.apache.http.impl.io.HttpTransportMetricsImpl;
 import org.apache.http.impl.io.SessionInputBufferImpl;
 import org.apache.http.io.SessionInputBuffer;
+
+import java.io.IOException;
 
 /**
  * A {@link SessionInputBuffer} implementation that bounds a {@link SessionInputBuffer} (and hence its

@@ -16,10 +16,9 @@ package it.unimi.di.law.warc.filters;
  * limitations under the License.
  */
 
+import com.google.common.net.HttpHeaders;
 import org.apache.http.Header;
 import org.apache.http.HttpResponse;
-
-import com.google.common.net.HttpHeaders;
 
 // RELEASE-STATUS: DIST
 

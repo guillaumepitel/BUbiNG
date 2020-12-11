@@ -18,10 +18,10 @@ package it.unimi.di.law.warc.util;
 
 // RELEASE-STATUS: DIST
 
-import java.io.IOException;
-
 import org.apache.http.HttpEntity;
 import org.apache.http.entity.BufferedHttpEntity;
+
+import java.io.IOException;
 
 /** An implementation of a {@link HttpEntityFactory} that returns a {@link BufferedHttpEntity}. */
 public class BufferedHttpEntityFactory implements HttpEntityFactory {

@@ -1,19 +1,18 @@
 package it.unimi.di.law.bubing.tool;
 
+import com.martiansoftware.jsap.*;
+import it.unimi.dsi.big.webgraph.EFGraph;
+import it.unimi.dsi.big.webgraph.EFGraph.LongWordOutputBitStream;
+import it.unimi.dsi.io.InputBitStream;
+import it.unimi.dsi.io.OutputBitStream;
+import it.unimi.dsi.util.ByteBufferLongBigList;
+
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteOrder;
 import java.nio.channels.WritableByteChannel;
 import java.util.Properties;
-
-import com.martiansoftware.jsap.JSAP;
-import com.martiansoftware.jsap.JSAPException;
-import com.martiansoftware.jsap.JSAPResult;
-import com.martiansoftware.jsap.Parameter;
-import com.martiansoftware.jsap.SimpleJSAP;
-import com.martiansoftware.jsap.Switch;
-import com.martiansoftware.jsap.UnflaggedOption;
 
 /*
  * Copyright (C) 2013-2017 Paolo Boldi, Massimo Santini, and Sebastiano Vigna
@@ -30,12 +29,6 @@ import com.martiansoftware.jsap.UnflaggedOption;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-import it.unimi.dsi.big.webgraph.EFGraph;
-import it.unimi.dsi.big.webgraph.EFGraph.LongWordOutputBitStream;
-import it.unimi.dsi.io.InputBitStream;
-import it.unimi.dsi.io.OutputBitStream;
-import it.unimi.dsi.util.ByteBufferLongBigList;
 
 /** Concatenates {@linkplain EFGraph Elias&ndash;Fano graphs}.
  *

@@ -21,12 +21,6 @@ package it.unimi.di.law.warc.records;
 import it.unimi.di.law.warc.io.WarcFormatException;
 import it.unimi.di.law.warc.util.BoundSessionInputBuffer;
 import it.unimi.di.law.warc.util.ByteArraySessionOutputBuffer;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.URI;
-import java.util.Arrays;
-
 import org.apache.http.HttpException;
 import org.apache.http.HttpRequest;
 import org.apache.http.ProtocolVersion;
@@ -34,6 +28,11 @@ import org.apache.http.RequestLine;
 import org.apache.http.impl.io.DefaultHttpRequestParser;
 import org.apache.http.impl.io.DefaultHttpRequestWriter;
 import org.apache.http.message.HeaderGroup;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URI;
+import java.util.Arrays;
 
 /** An implementation of {@link WarcRecord} corresponding to a {@link WarcRecord.Type#REQUEST} record type. */
 public class HttpRequestWarcRecord extends AbstractWarcRecord implements HttpRequest {

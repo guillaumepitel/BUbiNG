@@ -21,15 +21,14 @@ package it.unimi.di.law.warc.records;
 import it.unimi.di.law.warc.io.WarcFormatException;
 import it.unimi.di.law.warc.util.BoundSessionInputBuffer;
 import it.unimi.di.law.warc.util.ByteArraySessionOutputBuffer;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.Arrays;
-
 import org.apache.http.Header;
 import org.apache.http.HttpException;
 import org.apache.http.impl.io.AbstractMessageParser;
 import org.apache.http.message.HeaderGroup;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Arrays;
 
 /** An implementation of {@link WarcRecord} corresponding to a {@link WarcRecord.Type#WARCINFO} record type. */
 public class InfoWarcRecord extends AbstractWarcRecord {

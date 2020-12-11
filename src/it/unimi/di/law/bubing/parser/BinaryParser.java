@@ -16,24 +16,17 @@ package it.unimi.di.law.bubing.parser;
  * limitations under the License.
  */
 
-import it.unimi.di.law.bubing.util.detection.CharsetDetectionInfo;
-import it.unimi.di.law.bubing.util.detection.LanguageDetectionInfo;
+import com.google.common.hash.HashFunction;
+import com.google.common.hash.Hasher;
+import com.google.common.hash.Hashing;
 import it.unimi.di.law.warc.filters.URIResponse;
+import org.apache.http.HttpResponse;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
-import java.nio.charset.Charset;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.Locale;
-
-import org.apache.http.HttpResponse;
-
-import com.google.common.hash.HashFunction;
-import com.google.common.hash.Hasher;
-import com.google.common.hash.Hashing;
-import com.exensa.wdl.protobuf.crawler.MsgCrawler;
 
 // RELEASE-STATUS: DIST
 

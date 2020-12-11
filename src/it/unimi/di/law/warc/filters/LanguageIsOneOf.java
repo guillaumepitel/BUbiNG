@@ -21,7 +21,6 @@ import com.google.common.collect.Iterables;
 import it.unimi.di.law.bubing.util.FetchData;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 
-import java.net.URI;
 import java.util.Arrays;
 import java.util.Set;
 

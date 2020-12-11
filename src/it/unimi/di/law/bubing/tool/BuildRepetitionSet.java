@@ -16,6 +16,7 @@ package it.unimi.di.law.bubing.tool;
  * limitations under the License.
  */
 
+import com.google.common.base.Charsets;
 import it.unimi.dsi.fastutil.io.BinIO;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.io.FastBufferedReader;
@@ -24,8 +25,6 @@ import it.unimi.dsi.logging.ProgressLogger;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
-
-import com.google.common.base.Charsets;
 
 /** Builds and saves the <em>repetition set</em> of a crawl.
  *

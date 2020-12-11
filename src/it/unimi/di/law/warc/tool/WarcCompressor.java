@@ -1,14 +1,20 @@
 package it.unimi.di.law.warc.tool;
 
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.PrintStream;
-import java.util.concurrent.TimeUnit;
-
+import com.martiansoftware.jsap.*;
+import it.unimi.di.law.warc.io.CompressedWarcWriter;
+import it.unimi.di.law.warc.io.UncompressedWarcReader;
+import it.unimi.di.law.warc.io.WarcReader;
+import it.unimi.di.law.warc.io.WarcWriter;
+import it.unimi.di.law.warc.io.gzarc.GZIPArchive;
+import it.unimi.di.law.warc.records.WarcRecord;
+import it.unimi.dsi.fastutil.io.FastBufferedInputStream;
+import it.unimi.dsi.fastutil.io.FastBufferedOutputStream;
+import it.unimi.dsi.logging.ProgressLogger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.*;
+import java.util.concurrent.TimeUnit;
 
 /*
  * Copyright (C) 2004-2017 Paolo Boldi, Massimo Santini, and Sebastiano Vigna
@@ -25,26 +31,7 @@ import org.slf4j.LoggerFactory;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 // RELEASE-STATUS: DIST
-
-import com.martiansoftware.jsap.FlaggedOption;
-import com.martiansoftware.jsap.JSAP;
-import com.martiansoftware.jsap.JSAPException;
-import com.martiansoftware.jsap.JSAPResult;
-import com.martiansoftware.jsap.Parameter;
-import com.martiansoftware.jsap.SimpleJSAP;
-import com.martiansoftware.jsap.UnflaggedOption;
-
-import it.unimi.di.law.warc.io.CompressedWarcWriter;
-import it.unimi.di.law.warc.io.UncompressedWarcReader;
-import it.unimi.di.law.warc.io.WarcReader;
-import it.unimi.di.law.warc.io.WarcWriter;
-import it.unimi.di.law.warc.io.gzarc.GZIPArchive;
-import it.unimi.di.law.warc.records.WarcRecord;
-import it.unimi.dsi.fastutil.io.FastBufferedInputStream;
-import it.unimi.dsi.fastutil.io.FastBufferedOutputStream;
-import it.unimi.dsi.logging.ProgressLogger;
 
 /**
  * A tool to compress a WARC file adding the extra GZIP header fields required

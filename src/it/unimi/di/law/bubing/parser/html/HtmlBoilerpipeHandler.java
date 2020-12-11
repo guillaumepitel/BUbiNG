@@ -12,14 +12,14 @@
 
 package it.unimi.di.law.bubing.parser.html;
 
+import com.kohlschutter.boilerpipe.BoilerpipeExtractor;
+import com.kohlschutter.boilerpipe.BoilerpipeProcessingException;
 import com.kohlschutter.boilerpipe.document.TextBlock;
 import com.kohlschutter.boilerpipe.document.TextDocument;
 import com.kohlschutter.boilerpipe.sax.BoilerpipeHTMLContentHandler;
-import com.kohlschutter.boilerpipe.BoilerpipeExtractor;
-import com.kohlschutter.boilerpipe.BoilerpipeProcessingException;
+import net.htmlparser.jericho.HTMLElementName;
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
-import net.htmlparser.jericho.HTMLElementName;
 
 
 public final class HtmlBoilerpipeHandler extends BoilerpipeHTMLContentHandler

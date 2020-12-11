@@ -18,9 +18,9 @@ package it.unimi.di.law.warc.util;
 
 // RELEASE-STATUS: DIST
 
-import java.io.IOException;
-
 import org.apache.http.HttpEntity;
+
+import java.io.IOException;
 
 /** An interface describing factories that create {@link HttpEntity}. */
 public interface HttpEntityFactory {

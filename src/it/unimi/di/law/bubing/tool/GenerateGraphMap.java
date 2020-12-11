@@ -16,26 +16,14 @@ package it.unimi.di.law.bubing.tool;
  * limitations under the License.
  */
 
+import com.google.common.base.Charsets;
+import com.martiansoftware.jsap.*;
 import it.unimi.dsi.fastutil.io.FastBufferedOutputStream;
 import it.unimi.dsi.io.FastBufferedReader;
 import it.unimi.dsi.lang.MutableString;
 import it.unimi.dsi.logging.ProgressLogger;
 
-import java.io.DataOutputStream;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintStream;
-
-import com.google.common.base.Charsets;
-import com.martiansoftware.jsap.FlaggedOption;
-import com.martiansoftware.jsap.JSAP;
-import com.martiansoftware.jsap.JSAPException;
-import com.martiansoftware.jsap.JSAPResult;
-import com.martiansoftware.jsap.Parameter;
-import com.martiansoftware.jsap.SimpleJSAP;
-import com.martiansoftware.jsap.UnflaggedOption;
+import java.io.*;
 
 /** Builds and saves the graph map, that is, a text file containing all URLs ever crawled, and a binary file containing the corresponding
  * nodes (duplicates are mapped to their archetype position).

@@ -18,12 +18,11 @@ package it.unimi.di.law.warc.processors;
 
 // RELEASE-STATUS: DIST
 
+import com.google.common.base.Charsets;
 import it.unimi.di.law.warc.processors.ParallelFilteredProcessorRunner.Writer;
 
 import java.io.IOException;
 import java.io.PrintStream;
-
-import com.google.common.base.Charsets;
 
 public class ToStringWriter implements Writer<Object> {
 

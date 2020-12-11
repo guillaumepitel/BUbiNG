@@ -1,9 +1,6 @@
 package it.unimi.di.law.bubing.util;
 //RELEASE-STATUS: DIST
 
-import it.unimi.di.law.bubing.util.MurmurHash3;
-import it.unimi.di.law.bubing.util.MurmurHash3_128;
-
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 

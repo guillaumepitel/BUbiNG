@@ -1,10 +1,10 @@
 package it.unimi.di.law.bubing.util;
 
+import java.text.Normalizer;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.regex.Pattern;
-import java.text.Normalizer;
 
 
 public class TextUtils

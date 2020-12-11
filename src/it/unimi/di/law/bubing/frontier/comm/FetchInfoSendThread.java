@@ -17,19 +17,17 @@ package it.unimi.di.law.bubing.frontier.comm;
  */
 //RELEASE-STATUS: DIST
 
+import com.exensa.wdl.protobuf.crawler.MsgCrawler;
 import it.unimi.di.law.bubing.frontier.Frontier;
-
-import java.util.ArrayList;
-import java.util.concurrent.*;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.exensa.wdl.protobuf.crawler.MsgCrawler;
+import java.util.ArrayList;
+import java.util.concurrent.ArrayBlockingQueue;
 
 
 /**
- * A thread that takes care of sending the content of {@link Frontier#quickToSendDiscoveredURLs} with submit().
+ * A thread that takes care of sending the content of {@link Frontier#fetchInfoSendQueue} with submit().
  */
 
 public final class FetchInfoSendThread extends Thread

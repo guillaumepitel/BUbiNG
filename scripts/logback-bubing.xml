@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="true">
+
+  <appender name="GELF" class="de.siegmar.logbackgelf.GelfTcpAppender">
+    <graylogHost>logs.babbar.eu</graylogHost>
+    <graylogPort>12201</graylogPort>
+    <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+      <level>WARN</level>
+    </filter>
+  </appender>
+
+  <appender name="all" class="ch.qos.logback.core.rolling.RollingFileAppender">
+	  <file>${BUBING_LOG_DIR}/${BUBING_LOG_FILENAME}.log</file>
+    <encoder>
+	    <pattern>%highlight(%.-3p)|%date{dd/HHmmss.SSS} %cyan(%logger{1})@%red(%.16t) %m%n</pattern>
+    </encoder>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <maxHistory>10</maxHistory>
+      <FileNamePattern>${BUBING_LOG_DIR}/${BUBING_LOG_FILENAME}.%d{yyyy-MM-dd_HH}.log.gz</FileNamePattern>
+    </rollingPolicy>
+  </appender>
+  <appender name="warn" class="ch.qos.logback.core.rolling.RollingFileAppender">
+	  <file>${BUBING_LOG_DIR}/${BUBING_LOG_FILENAME}.warn</file>
+    <encoder>
+	    <pattern>%highlight(%.-3p)|%date{dd/HHmmss.SSS} %cyan(%logger{1})@%red(%.16t) %m%n</pattern>
+    </encoder>
+    <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+      <level>WARN</level>
+    </filter>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <maxHistory>10</maxHistory>
+      <FileNamePattern>${BUBING_LOG_DIR}/${BUBING_LOG_FILENAME}.%d.warn.gz</FileNamePattern>
+    </rollingPolicy>
+  </appender>
+  <appender name="debug" class="ch.qos.logback.core.rolling.RollingFileAppender">
+	  <file>${BUBING_LOG_DIR}/${BUBING_LOG_FILENAME}.debug</file>
+    <encoder>
+	    <pattern>%highlight(%.-3p)|%date{dd/HHmmss.SSS} %cyan(%logger{1})@%red(%.16t) %m%n</pattern>
+    </encoder>
+    <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+      <level>DEBUG</level>
+    </filter>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <maxHistory>10</maxHistory>
+      <FileNamePattern>${BUBING_LOG_DIR}/${BUBING_LOG_FILENAME}.%d.debug.gz</FileNamePattern>
+    </rollingPolicy>
+  </appender>
+
+  <root level="WARN">
+    <appender-ref ref="all"/>
+    <appender-ref ref="warn"/>
+    <!--appender-ref ref="GELF"/-->
+  </root>
+
+  <logger name="net.htmlparser.jericho" level="OFF"/>
+  <logger name="it.unimi.di.law.bubing.parser.XHTMLParser" level="WARN"/>
+  <logger name="it.unimi.di.law.bubing.parser.HTMLParser" level="WARN"/>
+  <logger name="it.unimi.di.law.bubing.frontier.FetchingThread" level="WARN"/>
+  <logger name="it.unimi.di.law.bubing.frontier.Frontier" level="WARN"/>
+  <logger name="it.unimi.di.law.bubing.frontier.FetchInfoHelper" level="INFO"/>
+  <logger name="it.unimi.di.law.bubing.frontier.ParsingThread" level="WARN"/>
+  <logger name="it.unimi.di.law.bubing.frontier.StatsThread" level="INFO"/>
+  <logger name="it.unimi.di.law.bubing.frontier.Distributor" level="INFO"/>
+  <logger name="org.apache.http.impl.client" level="WARN"/>
+  <logger name="org.apache.http.wire" level="WARN"/>
+</configuration>

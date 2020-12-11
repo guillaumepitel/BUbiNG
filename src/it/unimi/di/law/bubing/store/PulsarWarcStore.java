@@ -1,7 +1,7 @@
 package it.unimi.di.law.bubing.store;
 
 import it.unimi.di.law.bubing.RuntimeConfiguration;
-import it.unimi.di.law.bubing.protobuf.*;
+import it.unimi.di.law.bubing.protobuf.WebPageTextContentProto;
 import it.unimi.di.law.warc.io.UncompressedWarcWriter;
 import it.unimi.di.law.warc.io.WarcWriter;
 import it.unimi.di.law.warc.records.HttpResponseWarcRecord;
@@ -11,11 +11,12 @@ import org.apache.http.HttpResponse;
 import org.apache.http.message.BasicHeader;
 import org.apache.http.message.HeaderGroup;
 import org.apache.pulsar.client.api.*;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.*;
+import java.io.ByteArrayOutputStream;
+import java.io.Closeable;
+import java.io.IOException;
 import java.net.URI;
 import java.util.Map;
 import java.util.UUID;

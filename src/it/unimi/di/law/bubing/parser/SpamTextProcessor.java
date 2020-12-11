@@ -23,13 +23,12 @@ import it.unimi.dsi.fastutil.objects.Object2LongFunction;
 import it.unimi.dsi.fastutil.shorts.Short2ShortOpenHashMap;
 import it.unimi.dsi.io.FastBufferedReader;
 import it.unimi.dsi.lang.MutableString;
+import org.apache.commons.io.input.CharSequenceReader;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
-
-import org.apache.commons.io.input.CharSequenceReader;
 
 // RELEASE-STATUS: DIST
 

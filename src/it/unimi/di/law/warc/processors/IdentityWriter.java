@@ -18,17 +18,15 @@ package it.unimi.di.law.warc.processors;
 
 // RELEASE-STATUS: DIST
 
+import com.google.common.io.Closeables;
 import it.unimi.di.law.warc.io.UncompressedWarcWriter;
 import it.unimi.di.law.warc.processors.ParallelFilteredProcessorRunner.Writer;
 import it.unimi.di.law.warc.records.WarcRecord;
-
-import java.io.IOException;
-import java.io.PrintStream;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.io.Closeables;
+import java.io.IOException;
+import java.io.PrintStream;
 
 /** A writer that simply writes the given record. */
 

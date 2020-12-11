@@ -18,35 +18,32 @@ package it.unimi.di.law.bubing.store;
  *
  */
 
-import com.hadoop.compression.fourmc.*;
+import com.hadoop.compression.fourmc.ZstdCodec;
 import it.unimi.di.law.bubing.RuntimeConfiguration;
 import it.unimi.di.law.warc.io.UncompressedWarcWriter;
 import it.unimi.di.law.warc.io.WarcWriter;
 import it.unimi.di.law.warc.records.HttpResponseWarcRecord;
 import it.unimi.di.law.warc.records.WarcHeader;
 import it.unimi.dsi.fastutil.io.FastBufferedOutputStream;
-
-import java.io.*;
-import java.net.URI;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.Map;
-import java.util.UUID;
-import java.util.Date;
-import java.text.SimpleDateFormat;
-import java.util.zip.GZIPOutputStream;
-
-
 import org.apache.commons.codec.binary.Hex;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.CompressionCodecFactory;
-import org.apache.hadoop.io.compress.Lz4Codec;
 import org.apache.http.HttpResponse;
 import org.apache.http.message.BasicHeader;
 import org.apache.http.message.HeaderGroup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.*;
+import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Map;
+import java.util.UUID;
+import java.util.zip.GZIPOutputStream;
 
 
 //RELEASE-STATUS: DIST

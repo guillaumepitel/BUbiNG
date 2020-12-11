@@ -47,4 +47,8 @@ public final class ParseData
       ? pageInfo.getGuessedLanguage().getLanguage()
       : null;
   }
+
+  public String getETag() {
+    return pageInfo.getETag();
+  }
 }

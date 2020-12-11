@@ -28,7 +28,7 @@
 		<ivy:retrieve symlink="true" sync="true" pattern="${jars.dir}/[conf]/[artifact](-[classifier]).[ext]"/>
 		<property name="jolokiaver" value="1.1.3"/>
 		<get
-			src="https://labs.consol.de/maven/repository/org/jolokia/jolokia-jvm/${jolokiaver}/jolokia-jvm-${jolokiaver}-agent.jar"
+			src="https://search.maven.org/remotecontent?filepath=org/jolokia/jolokia-jvm/${jolokiaver}/jolokia-jvm-${jolokiaver}.jar"
 			dest="${jars.dir}/jolokia-jvm-${jolokiaver}-agent.jar"
 			verbose="true" usetimestamp="true" skipexisting="true"
 		/>
@@ -51,9 +51,7 @@
 	<target name="ivy-pom" description="Creates POM">
 		<ivy:resolve/>
 		<ivy:deliver deliverpattern="${dist}/ivy.xml" pubrevision="${version}" status="release"/>
-		<ivy:makepom ivyfile="${dist}/ivy.xml" templatefile="pom-model.xml" pomfile="pom.xml">
-			<dependency group="ch.qos.logback" artifact="logback-classic.jar" optional="true"/>
-		</ivy:makepom>
+		<ivy:makepom ivyfile="${dist}/ivy.xml" templatefile="pom-model.xml" pomfile="pom.xml"/>
 	</target>
 
 	<path id="compile.classpath">
@@ -222,19 +220,19 @@
 	</target>
 
 	<target name="compile" depends="init,javacc,protoc" description="Compile sources (without tests)">
-		<javac srcdir="${src}" debug="on" optimize="on" destdir="${build}" encoding="UTF-8" source="1.8" target="1.8" classpathref="compile.classpath"/>
+		<javac srcdir="${src}" debug="on" optimize="on" destdir="${build}" encoding="UTF-8" release="11" classpathref="compile.classpath"/>
 	</target>
 
 	<target name="compile-tests" depends="init,javacc,compile" description="Compile sources (tests)">
-		<javac srcdir="${src}:${test}" debug="on" optimize="on" destdir="${build}" encoding="UTF-8" source="1.8" target="1.8" classpathref="test.classpath"/>
+		<javac srcdir="${src}:${test}" debug="on" optimize="on" destdir="${build}" encoding="UTF-8" release="11" classpathref="test.classpath"/>
 	</target>
 
 	<target name="compile-priv" depends="init,javacc" description="Compile sources (without tests)">
-		<javac srcdir="${src}:${privsrc}" debug="on" optimize="on" destdir="${build}" encoding="UTF-8" source="1.8" target="1.8" classpathref="compile.classpath"/>
+		<javac srcdir="${src}:${privsrc}" debug="on" optimize="on" destdir="${build}" encoding="UTF-8" release="11" classpathref="compile.classpath"/>
 	</target>
 
 	<target name="compile-priv-tests" depends="init,javacc,compile" description="Compile sources (tests)">
-		<javac srcdir="${src}:${test}:${privsrc}:${privtest}" debug="on" optimize="on" destdir="${build}" encoding="UTF-8" source="1.8" target="1.8" classpathref="test.classpath"/>
+		<javac srcdir="${src}:${test}:${privsrc}:${privtest}" debug="on" optimize="on" destdir="${build}" encoding="UTF-8" release="11" classpathref="test.classpath"/>
 	</target>
 
 	<target name="jar" depends="compile" description="Creates jar">

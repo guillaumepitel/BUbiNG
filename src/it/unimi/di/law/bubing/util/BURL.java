@@ -16,22 +16,22 @@ package it.unimi.di.law.bubing.util;
  * limitations under the License.
  */
 
+import com.google.common.base.Charsets;
+import com.google.common.primitives.Bytes;
 import it.unimi.dsi.fastutil.bytes.ByteArrayList;
 import it.unimi.dsi.lang.MutableString;
-
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.nio.ByteBuffer;
-import java.nio.CharBuffer;
-import java.util.Arrays;
-
 import org.apache.commons.lang.ArrayUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Charsets;
-import com.google.common.primitives.Bytes;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.util.*;
+import java.util.regex.Pattern;
 
 // RELEASE-STATUS: DIST
 
@@ -98,6 +98,8 @@ public final class BURL {
 		return parse(new MutableString(spec));
 	}
 
+	public static URI parseAndNormalize(String spec) { return parseAndNormalize(new MutableString(spec), true);}
+
 	/** Creates a new BUbiNG URL from a {@linkplain MutableString mutable string}
 	 * specification if possible, or returns {@code null} otherwise.
 	 *
@@ -130,6 +132,10 @@ public final class BURL {
 	 */
 
 	public static URI parse(MutableString spec) {
+		return parseAndNormalize(spec, false);
+	}
+
+	public static URI parseAndNormalize(MutableString spec, boolean normalize) {
 
 		if (DEBUG) LOGGER.debug("parse(" + spec + ")");
 		spec.loose().trim();
@@ -189,8 +195,13 @@ public final class BURL {
 
 			if (host != null && (rawPath == null || rawPath.length() == 0)) rawPath = "/";
 
+
+
 			// Rebuild, discarding fragment, parsing again a purely ASCII string and renormalizing (convoluted, but it does work).
-			return new URI(sanitizeAndRepack(scheme, uri.getRawUserInfo(), host, uri.getPort(), rawPath, uri.getRawQuery())).normalize();
+			if (normalize)
+				return new URI(sanitizeAndRepack(scheme, uri.getRawUserInfo(), host, uri.getPort(), rawPath, normalizeQuery(uri.getRawQuery()))).normalize();
+			else
+				return new URI(sanitizeAndRepack(scheme, uri.getRawUserInfo(), host, uri.getPort(), rawPath, uri.getRawQuery())).normalize();
 		}
 		catch (URISyntaxException e) {
 			return null;
@@ -201,6 +212,54 @@ public final class BURL {
 		}
 	}
 
+	private static final List<String> blackListedParams;
+	static {
+		blackListedParams = Arrays.asList("PHPSESSID","jsessionid","osCsid","zenid","ncid","SID","sid",
+			"referrerPage",
+			"campaign_id","campaign",
+			"affiliation","affiliate",
+			"utm_campaign","utm_source","utm_medium","utm_term","utm_content",
+			"itm_campaign","itm_source","itm_medium","itm_term","itm_content","itm_channel","itm_audience",
+			"pk_campaign","pk_kwd","pk_keyword");
+	}
+
+	private static final Pattern normalizeQueryPattern;
+	private static final Pattern normalizeQueryPattern2;
+	private static final Pattern normalizeQueryPattern3;
+
+	static {
+		normalizeQueryPattern2 = Pattern.compile("(^[;&]*|[;&]*$)");
+		normalizeQueryPattern3 = Pattern.compile("([;&])[;&]*");
+		StringBuilder normalizeQueryPatternStringBuilder = new StringBuilder();
+		normalizeQueryPatternStringBuilder.append("(?<=^|[&;])(");
+		boolean first = true;
+		for (String param : blackListedParams) {
+			if (!first)
+				normalizeQueryPatternStringBuilder.append("|");
+			first = false;
+			normalizeQueryPatternStringBuilder.append(param);
+		}
+		normalizeQueryPatternStringBuilder.append(")=[^;&]*(?=[;&]|$)");
+		normalizeQueryPattern = Pattern.compile(normalizeQueryPatternStringBuilder.toString());
+	}
+
+  public static String normalizeQuery(String query) {
+		if (query == null)
+			return null;
+		if (query.length() == 0)
+			return query;
+
+		String result1 = normalizeQueryPattern.matcher(query).replaceAll("");
+		String result2 = normalizeQueryPattern2.matcher(result1).replaceAll("");
+		String result = normalizeQueryPattern3.matcher(result2).replaceAll("$1");
+
+
+		if (LOGGER.isTraceEnabled())
+			if (query.length() != result.length())
+				LOGGER.trace("Normalized {} to {}", query,result);
+		return result;
+	}
+
 	/** If the argument string does not contain non-ASCII characters, returns the string itself;
 	 * otherwise, encodes non-ASCII characters by %XX-encoded UTF-8 sequences.
 	 *
@@ -208,9 +267,9 @@ public final class BURL {
 	 * @return <code>c</code> with non-ASCII characters replaced by %XX-encoded UTF-8 sequences.
 	 */
 	private static String sanitize(final String s) {
-    	int i = s.length();
-        for(i = s.length(); i-- != 0;) if (s.charAt(i) >= (char)128) break;
-        if (i == -1) return s;
+		int i = s.length();
+    for(i = s.length(); i-- != 0;) if (s.charAt(i) >= (char)128) break;
+    if (i == -1) return s;
 
 		final ByteBuffer byteBuffer = Charsets.UTF_8.encode(CharBuffer.wrap(s));
 		final StringBuilder stringBuilder = new StringBuilder();

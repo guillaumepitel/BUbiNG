@@ -16,13 +16,11 @@ package it.unimi.di.law.warc.filters;
  * limitations under the License.
  */
 
+import com.google.common.base.Predicate;
 import it.unimi.dsi.lang.FlyweightPrototype;
-
-import java.net.URI;
-
 import org.apache.http.HttpResponse;
 
-import com.google.common.base.Predicate;
+import java.net.URI;
 
 //RELEASE-STATUS: DIST
 

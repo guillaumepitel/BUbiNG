@@ -18,10 +18,9 @@ package it.unimi.di.law.warc.filters;
 
 import it.unimi.di.law.bubing.util.FetchData;
 import it.unimi.di.law.warc.records.HttpResponseWarcRecord;
+import org.apache.http.HttpResponse;
 
 import java.net.URI;
-
-import org.apache.http.HttpResponse;
 
 //RELEASE-STATUS: DIST
 

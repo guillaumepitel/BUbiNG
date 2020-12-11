@@ -22,15 +22,14 @@ import it.unimi.dsi.Util;
 import it.unimi.dsi.bits.Fast;
 import it.unimi.dsi.logging.ProgressLogger;
 import it.unimi.dsi.stat.SummaryStats;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLongArray;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 //RELEASE-STATUS: DIST
 
@@ -185,7 +184,7 @@ public final class StatsThread implements Runnable {
 
 		statInfo.append("STATS : Current front size: " + Util.format(frontier.getCurrentFrontSize())
 				+ "; Required front size: " + Util.format(frontier.requiredFrontSize.get())
-				+ "; Ready URLs: " + Util.format(frontier.quickReceivedCrawlRequests.size()) + "\n");
+				+ "; Ready URLs: " + Util.format(frontier.receivedCrawlRequests.size()) + "\n");
 
 		statInfo.append("STATS : FetchingThread waits: " + Util.format(frontier.fetchingThreadWaits.get())
 				+ "; total wait time: " + Util.format(frontier.fetchingThreadWaitingTimeSum.get()) + "\n");
@@ -318,7 +317,6 @@ public final class StatsThread implements Runnable {
 				+ "; on disk: " + frontier.virtualizer.onDisk() + "\n");
 		statInfo.append("STATS : Speed dist: " + toString(frontier.speedDist) + "\n");
 		for(int i = frontier.speedDist.length(); i-- != 0;) frontier.speedDist.set(i, 0); // Cleanup
-		//statInfo.append("STATS : Cache hits: " + frontier.urlCache.hits() + " misses: " + frontier.urlCache.misses() + "\n"); // FIXME: seive ?
 		LOGGER.info(statInfo.toString());
 		distributor.lastHighCostStats = System.currentTimeMillis();
 	}

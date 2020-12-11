@@ -16,13 +16,13 @@ package it.unimi.di.law.warc.filters;
  * limitations under the License.
  */
 
+import org.apache.commons.io.IOUtils;
+import org.apache.http.HttpResponse;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.regex.Pattern;
-
-import org.apache.commons.io.IOUtils;
-import org.apache.http.HttpResponse;
 
 // RELEASE-STATUS: DIST
 

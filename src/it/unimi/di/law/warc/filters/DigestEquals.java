@@ -19,10 +19,9 @@ package it.unimi.di.law.warc.filters;
 import it.unimi.di.law.warc.records.WarcHeader;
 import it.unimi.di.law.warc.records.WarcRecord;
 import it.unimi.di.law.warc.util.Util;
+import org.apache.http.Header;
 
 import java.util.Arrays;
-
-import org.apache.http.Header;
 
 // RELEASE-STATUS: DIST
 

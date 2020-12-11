@@ -18,26 +18,14 @@ package it.unimi.di.law.warc.records;
 
 // RELEASE-STATUS: DIST
 
+import com.google.common.net.HttpHeaders;
 import it.unimi.di.law.warc.filters.URIResponse;
 import it.unimi.di.law.warc.io.WarcFormatException;
 import it.unimi.di.law.warc.util.BoundSessionInputBuffer;
 import it.unimi.di.law.warc.util.ByteArraySessionOutputBuffer;
 import it.unimi.di.law.warc.util.HttpEntityFactory;
 import it.unimi.di.law.warc.util.IdentityHttpEntityFactory;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.SequenceInputStream;
-import java.net.URI;
-import java.util.Arrays;
-import java.util.Locale;
-
-import org.apache.http.Header;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpException;
-import org.apache.http.HttpResponse;
-import org.apache.http.ProtocolVersion;
-import org.apache.http.StatusLine;
+import org.apache.http.*;
 import org.apache.http.entity.BasicHttpEntity;
 import org.apache.http.impl.io.ContentLengthInputStream;
 import org.apache.http.impl.io.DefaultHttpResponseParser;
@@ -46,7 +34,12 @@ import org.apache.http.message.HeaderGroup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.net.HttpHeaders;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.SequenceInputStream;
+import java.net.URI;
+import java.util.Arrays;
+import java.util.Locale;
 
 /** An implementation of {@link WarcRecord} corresponding to a {@link WarcRecord.Type#RESPONSE} record type. */
 public class HttpResponseWarcRecord extends AbstractWarcRecord implements HttpResponse, URIResponse {

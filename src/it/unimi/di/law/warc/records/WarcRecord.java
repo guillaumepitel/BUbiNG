@@ -20,6 +20,9 @@ package it.unimi.di.law.warc.records;
 
 import it.unimi.di.law.warc.util.BoundSessionInputBuffer;
 import it.unimi.di.law.warc.util.ByteArraySessionOutputBuffer;
+import org.apache.http.Header;
+import org.apache.http.ProtocolVersion;
+import org.apache.http.message.HeaderGroup;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -27,10 +30,6 @@ import java.lang.reflect.Method;
 import java.net.URI;
 import java.util.Date;
 import java.util.UUID;
-
-import org.apache.http.Header;
-import org.apache.http.ProtocolVersion;
-import org.apache.http.message.HeaderGroup;
 
 /**
  * An interface describing a WARC record.

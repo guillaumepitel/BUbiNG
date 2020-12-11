@@ -1,4 +1,4 @@
-buffer<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>
   <head>
     <title>BUbiNG</title>
@@ -109,7 +109,6 @@ net.ipv4.ip_local_port_range = 1024 65000
 	annotation in {@link it.unimi.di.law.bubing.StartupConfiguration}. This is an example configuration file:
     <pre>
 rootDir=crawl-eu
-maxUrlsPerSchemeAuthority=1000
 parsingThreads=64
 dnsThreads=50
 fetchingThreads=512
@@ -120,9 +119,6 @@ parseFilter=( ContentTypeStartsWith(text/) or PathEndsWithOneOf(.html\,.htm\,.tx
 storeFilter=( ContentTypeStartsWith(text/) or PathEndsWithOneOf(.html\,.htm\,.txt) ) and not IsProbablyBinary()
 schemeAuthorityDelay=10s
 ipDelay=2s
-maxUrls=500M
-bloomFilterPrecision=1E-8
-seed=file:/some/path/eu.seed
 socketTimeout=60s
 connectionTimeout=60s
 fetchDataBufferByteSize=200K
@@ -135,8 +131,6 @@ responseBodyMaxByteSize=2M
 digestAlgorithm=MurmurHash3
 startPaused=false
 workbenchMaxByteSize=512Mi
-urlCacheMaxByteSize=1Gi
-sieveSize=64Mi
 parserSpec=HTMLParser(MurmurHash3)
 keepAliveTime=1s
     </pre>
@@ -286,11 +280,6 @@ java -server -Xss256K -Xms20G -XX:+UseNUMA -XX:+UseConcMarkSweepGC  \
 	<dd>If you are using near-duplicate detection there is a large amount of memory used by the Bloom filter which keeps track of digests. The
 	amount of memory used depends on {@link it.unimi.di.law.bubing.StartupConfiguration#maxUrls} and
 	{@link it.unimi.di.law.bubing.StartupConfiguration#bloomFilterPrecision}, and it is explained {@linkplain it.unimi.dsi.util.BloomFilter here}.</dd>
-	<dt>The URL cache</dt>
-	<dd>The URL cache keeps track of 128-bit MurmurHash3 fingerprints of recently seen URLs; it significantly reduces the number of URLs
-	broadcast in a distributed crawl, besides lightening the load on the sieve. Its size
-	must be fixed <i>a priori</i> using {@link it.unimi.di.law.bubing.StartupConfiguration#urlCacheMaxByteSize}. Look at the hit/miss ratio in the logs to understand
-	whether you have a large enough cache (the bigger, the better).</dd>
 	<dt>Data associated to visit states</dt>
 	<dd>This is a relatively small amount of data (less than one kilobyte) associated with each host currently visited. It consists in some metadata
 	associated with the host, its cookies, and its <samp>robots.txt</samp> exclusion information. The size of the cookies can be controlled using a 

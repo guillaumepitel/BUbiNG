@@ -1,6 +1,9 @@
 package it.unimi.di.law.bubing.util.cld2;
 
 import com.sun.jna.Library;
+import com.sun.jna.Native;
+import com.sun.jna.NativeLibrary;
+import com.sun.jna.ptr.PointerByReference;
 
 /*
  * Copyright 2015-2017 EntIT Software LLC, a Micro Focus company.
@@ -17,10 +20,6 @@ import com.sun.jna.Library;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-import com.sun.jna.Native;
-import com.sun.jna.NativeLibrary;
-import com.sun.jna.ptr.PointerByReference;
 
 /**
  * JNA Interface to access the C++ CLD2 methods

@@ -16,10 +16,10 @@ package it.unimi.di.law.bubing.frontier;
  * limitations under the License.
  */
 
-import java.util.concurrent.DelayQueue;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.concurrent.DelayQueue;
 
 //RELEASE-STATUS: DIST
 
