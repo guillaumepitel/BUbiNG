@@ -26,6 +26,6 @@ popd
 
 pushd target
 tar zchf ${MODULE}.tar.gz ${MODULE}
-scp ${MODULE}.tar.gz babbar@salt.babbar.eu:/srv/salt/crawling/files/prod
+scp ${MODULE}.tar.gz babbar@salt.babbar.eu:/srv/salt/crawling/files/dev
 popd
 

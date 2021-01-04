@@ -375,8 +375,16 @@ public class ParsingThread extends Thread {
       parseData = doParse( fetchData.binaryParser, fetchData );
     }
 
-    if ( parseData == null )
+    if ( parseData == null ) {
       return; // failure while parsing
+    }
+
+    if (frontier.rc.filterLangs &&
+      (parseData.getLanguageName() == null ||
+        !frontier.rc.authorizedLangs.contains(parseData.getLanguageName()))) {
+      LOGGER.trace(String.format("ditching (wrong language) %s with lang %s", fetchData.uri(), parseData.getLanguageName()));
+      return;
+    }
 
     //final boolean isDuplicate = streamLength > 0 && !frontier.digests.addHash(parseData.digest); // Essentially thread-safe; we do not consider zero-content pages as duplicates
     final boolean isDuplicate = false;
@@ -436,14 +444,6 @@ public class ParsingThread extends Thread {
         fetchData.extraMap.put("BUbiNG-Guessed-Language", parseData.getLanguageName() );
         fetchData.lang = LanguageCodes.getByte( parseData.getLanguageName() );
       }
-      if (frontier.rc.filterLangs && !frontier.rc.authorizedLangs.contains(parseData.getLanguageName())) {
-        LOGGER.trace(String.format("ditching %s with lang %s", fetchData.uri(), parseData.getLanguageName()));
-        return null;
-      }
-      /*else {
-        if (frontier.rc.filterLangs)
-          LOGGER.warn(String.format("keeping %s with lang %s", fetchData.uri(), parseData.getLanguageName()));
-      }*/
       if ( parseData.getETag() != null ) {
         LOGGER.trace("URL {} has ETag {}", fetchData.uri(), parseData.getETag());
         fetchData.eTag = parseData.getETag();
@@ -503,7 +503,8 @@ public class ParsingThread extends Thread {
     }
   }
 
-  private String store( final RuntimeConfiguration rc, final FetchData fetchData, final ParseData parseData, final boolean isNotDuplicate, final long streamLength ) throws IOException, InterruptedException {
+  private String store(final RuntimeConfiguration rc, final FetchData fetchData, final ParseData parseData,
+                       final boolean isNotDuplicate, final long streamLength) throws IOException, InterruptedException {
     final boolean mustBeStored = rc.storeFilter.apply( fetchData );
 
     // ALERT: store exceptions should cause shutdown.

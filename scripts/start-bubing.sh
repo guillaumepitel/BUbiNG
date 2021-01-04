@@ -34,7 +34,7 @@ find ${LOG_DIR}/oldies -maxdepth 1 -name "${XTRA}console.*" -delete
 find ${LOG_DIR} -maxdepth 1 -name "${XTRA}bubing*" -exec mv {} ${LOG_DIR}/oldies/ \;
 find ${LOG_DIR} -maxdepth 1 -name "${XTRA}console.*" -exec mv {} ${LOG_DIR}/oldies/ \;
 
-java -server -cp jars/"*":dependencies/"*":extjars/"*":. \
+java -server -cp /etc/hadoop/conf:jars/"*":dependencies/"*":extjars/"*":. \
   -Xss256K -Xms${XMS} -Xmx${XMX} \
   -Djava.rmi.server.hostname=127.0.0.1 \
   -Djava.net.preferIPv4Stack=true \
