@@ -436,6 +436,14 @@ public class ParsingThread extends Thread {
         fetchData.extraMap.put("BUbiNG-Guessed-Language", parseData.getLanguageName() );
         fetchData.lang = LanguageCodes.getByte( parseData.getLanguageName() );
       }
+      if (frontier.rc.filterLangs && !frontier.rc.authorizedLangs.contains(parseData.getLanguageName())) {
+        LOGGER.trace(String.format("ditching %s with lang %s", fetchData.uri(), parseData.getLanguageName()));
+        return null;
+      }
+      /*else {
+        if (frontier.rc.filterLangs)
+          LOGGER.warn(String.format("keeping %s with lang %s", fetchData.uri(), parseData.getLanguageName()));
+      }*/
       if ( parseData.getETag() != null ) {
         LOGGER.trace("URL {} has ETag {}", fetchData.uri(), parseData.getETag());
         fetchData.eTag = parseData.getETag();

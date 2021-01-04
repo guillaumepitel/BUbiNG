@@ -28,8 +28,7 @@ import java.lang.reflect.Modifier;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.regex.Pattern;
@@ -247,6 +246,18 @@ public class RuntimeConfiguration {
 	/** @see StartupConfiguration#pulsarFrontierToPromptlyCrawlURLsTopic */
 	public volatile String pulsarFrontierToPromptlyCrawlURLsTopic;
 
+	/** @see StartupConfiguration#hdfsNnUri */
+	public volatile String hdfsNnUri;
+
+	/** @see StartupConfiguration#hdfsStoreDir */
+	public volatile String hdfsStoreDir;
+
+	/** @see StartupConfiguration#authorizedLangs */
+	public Set<String> authorizedLangs;
+
+	/** @see StartupConfiguration#authorizedLangs */
+	public boolean filterLangs;
+
 	/** @see StartupConfiguration#workbenchMaxByteSize */
 	public volatile long workbenchMaxByteSize;
 
@@ -349,6 +360,25 @@ public class RuntimeConfiguration {
 		else blackListedHostHashes.add(hostLongHash(spec.trim()));
 	}
 
+	/** Adds a (or a set of) new lang to the authorized list; the language code can be specified directly or it can be a file (prefixed by
+	 *  <code>file:</code>).
+	 *
+	 * @param lang the specification (a language code, or a file prefixed by <code>file</code>).
+	 * @throws ConfigurationException
+	 * @throws FileNotFoundException
+	 */
+	public void addLanguageCode(final String lang) throws ConfigurationException, FileNotFoundException 	{
+		if (lang.length() == 0) return; // Skip empty specs
+		if (lang.startsWith("file:")) {
+			final LineIterator lineIterator = new LineIterator(new FastBufferedReader(new InputStreamReader(new FileInputStream(lang.substring(5)), Charsets.ISO_8859_1)));
+			while (lineIterator.hasNext()) {
+				MutableString line = lineIterator.next();
+				authorizedLangs.add(line.toString().trim());
+			}
+		}
+		else authorizedLangs.add(lang.trim());
+	}
+
 	public RuntimeConfiguration(final StartupConfiguration startupConfiguration) throws ConfigurationException, IOException {
 		try {
 			crawlIsNew = startupConfiguration.crawlIsNew;
@@ -382,11 +412,14 @@ public class RuntimeConfiguration {
 			pulsarFrontierFetchTopic = startupConfiguration.pulsarFrontierFetchTopic;
 			pulsarFrontierToCrawlURLsTopic = startupConfiguration.pulsarFrontierToCrawlURLsTopic;
 			pulsarFrontierToPromptlyCrawlURLsTopic = startupConfiguration.pulsarFrontierToPromptlyCrawlURLsTopic;
+			hdfsNnUri = startupConfiguration.hdfsNnUri;
+			hdfsStoreDir = startupConfiguration.hdfsStoreDir;
 			workbenchMaxByteSize = startupConfiguration.workbenchMaxByteSize;
 			virtualizerMaxByteSize = startupConfiguration.virtualizerMaxByteSize;
 			dnsCacheMaxSize = startupConfiguration.dnsCacheMaxSize;
 			dnsPositiveTtl = startupConfiguration.dnsPositiveTtl;
 			dnsNegativeTtl = startupConfiguration.dnsNegativeTtl;
+			filterLangs = false;
 
 			try {
 				dnsResolver = startupConfiguration.dnsResolverClass.getConstructor().newInstance();
@@ -402,6 +435,17 @@ public class RuntimeConfiguration {
 			blackListedHostHashes = new LongOpenHashSet();
 			for(String spec : startupConfiguration.blackListedHosts) addBlackListedHost(spec);
 			blackListedHostHashesLock = new ReentrantReadWriteLock();
+
+			authorizedLangs = new HashSet<String>();
+			if (startupConfiguration.authorizedLangs.length > 0 && !startupConfiguration.authorizedLangs[0].equals("")) {
+				for (String lang : startupConfiguration.authorizedLangs) addLanguageCode(lang);
+				filterLangs = true;
+			}
+			LOGGER.warn(String.format("filterLangs: %s authorized: %s -> %s",
+				String.valueOf(filterLangs),
+				Arrays.toString(startupConfiguration.authorizedLangs),
+				Arrays.toString(authorizedLangs.toArray())
+				));
 
 			socketTimeout = startupConfiguration.socketTimeout;
 			connectionTimeout = startupConfiguration.connectionTimeout;

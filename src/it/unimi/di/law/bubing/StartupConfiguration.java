@@ -376,6 +376,19 @@ public class StartupConfiguration {
 	@OptionalSpecification(value="persistent://sample/standalone/crawling/toCrawl")
 	public String pulsarFrontierToPromptlyCrawlURLsTopic;
 
+	/** For hdfs warc store : namenode uri */
+	@OptionalSpecification(value="")
+	public String hdfsNnUri;
+
+	/** For hdfs warc store : store dir */
+	@OptionalSpecification(value="")
+	public String hdfsStoreDir;
+
+	/** authorized langs */
+	@ManyValuesSpecification
+	@OptionalSpecification(value="")
+	public String[] authorizedLangs;
+
 	/** The maximum size of the workbench in bytes. */
 	public long workbenchMaxByteSize;
 

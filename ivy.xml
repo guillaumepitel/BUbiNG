@@ -51,7 +51,8 @@
 		<dependency org="org.apache.httpcomponents"  name="httpcore" rev="latest.release"/>
 		<dependency org="org.apache.httpcomponents" name="httpclient" rev="latest.release"/>
 		<!-- <dependency org="org.apache.httpcomponents" name="httpasyncclient" rev="latest.release"/>-->
-		<dependency org="org.apache.hadoop" name="hadoop-common" rev="2.7.5"/>
+		<dependency org="org.apache.hadoop" name="hadoop-common" rev="2.8.5"/>
+		<dependency org="org.apache.hadoop" name="hadoop-hdfs-client" rev="2.8.5"/>
 		<dependency org="com.exensa" name="wdl-proto" changing="true" rev="0.13-SNAPSHOT"/>
 		<dependency org="com.exensa" name="wdl-common" changing="true" rev="0.13-SNAPSHOT"/>
 		<dependency org="com.kohlschutter.boilerpipe" name="boilerpipe-common" rev="2.0-java-11-SNAPSHOT"/>

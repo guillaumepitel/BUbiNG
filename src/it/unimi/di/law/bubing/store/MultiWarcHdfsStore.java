@@ -24,9 +24,10 @@ import it.unimi.di.law.warc.io.UncompressedWarcWriter;
 import it.unimi.di.law.warc.io.WarcWriter;
 import it.unimi.di.law.warc.records.HttpResponseWarcRecord;
 import it.unimi.di.law.warc.records.WarcHeader;
-import it.unimi.dsi.fastutil.io.FastBufferedOutputStream;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.CompressionCodecFactory;
 import org.apache.http.HttpResponse;
@@ -37,21 +38,19 @@ import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.net.URI;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.zip.GZIPOutputStream;
 
 
 //RELEASE-STATUS: DIST
 
 /** A {@link Store} implementation using the {@link it.unimi.di.law.warc} package. */
 
-public class MultiWarcStore implements Closeable, Store {
-	private final static Logger LOGGER = LoggerFactory.getLogger( MultiWarcStore.class );
+public class MultiWarcHdfsStore implements Closeable, Store {
+	private final static Logger LOGGER = LoggerFactory.getLogger( MultiWarcHdfsStore.class );
 
 	private final int OUTPUT_STREAM_BUFFER_SIZE = 32*1024 * 1024;
 	private final static String STORE_NAME_FORMAT = "store.warc.%s.%s.zstd_mc";
@@ -63,28 +62,66 @@ public class MultiWarcStore implements Closeable, Store {
 	private int currentNumberOfRecordsInFile = 0;
 	private long lastDumpTime = (new Date()).getTime()/1000;
 	private Object counterLock = new Object();
-	private FastBufferedOutputStream warcOutputStream;
+	private FSDataOutputStream warcOutputStream;
 	private WarcWriter warcWriter;
-	private OutputStream urlOutputStream;
+	private FSDataOutputStream urlOutputStream;
 	private BufferedWriter urlWriter;
 	private String currentStoreBaseName;
 	private String currentUrlBaseName;
-	private final File storeDir;
-	private final CompressionCodec codec;
+	private String hdfsStoreDir;
+	private CompressionCodec codec = null;
+	private final FileSystem fs;
 
-	public MultiWarcStore( final RuntimeConfiguration rc ) throws IOException {
-		storeDir = rc.storeDir;
+	public static Configuration getHadoopConfiguration(String hdfsuri) {
+		// ====== Init HDFS File System Object
+		Configuration config = new Configuration();
+		// Set FileSystem URI
+		config.set("fs.defaultFS", hdfsuri);
+		// Because of Maven
+		config.set("fs.hdfs.impl", org.apache.hadoop.hdfs.DistributedFileSystem.class.getName());
+		config.set("fs.file.impl", org.apache.hadoop.fs.LocalFileSystem.class.getName());
+		config.addResource(ClassLoader.getSystemResourceAsStream("core-site.xml"));
+
+		CompressionCodecFactory ccf = new CompressionCodecFactory(config);
+		List<Class<? extends CompressionCodec>> classes = ccf.getCodecClasses(config);
+
+		for (Class<? extends CompressionCodec> codec : classes) {
+			LOGGER.info("Found codec {}", codec.getName());
+		}
+
+		return config;
+	}
+
+	public static FileSystem get(String hdfsuri) {
+		try {
+			Configuration conf = getHadoopConfiguration(hdfsuri);
+			// Set HADOOP user
+			System.setProperty("HADOOP_USER_NAME", "hdfs");
+			System.setProperty("hadoop.home.dir", "/");
+			//Get the filesystem - HDFS
+			return FileSystem.get(URI.create(hdfsuri), conf);
+		}
+		catch (IOException e) {
+			LOGGER.error("Error while creating hdfs");
+		}
+		return null;
+	}
+
+
+	public MultiWarcHdfsStore(final RuntimeConfiguration rc) throws IOException {
+		hdfsStoreDir = rc.hdfsStoreDir;
 		maxRecordsPerFile = rc.maxRecordsPerFile;
 		maxSecondsBetweenDumps = rc.maxSecondsBetweenDumps;
-		LOGGER.debug("Max record per file = " + maxRecordsPerFile);
-		LOGGER.debug("Max seconds between dumps = " + maxSecondsBetweenDumps);
+		LOGGER.warn("Max record per file = " + maxRecordsPerFile);
+		LOGGER.warn("Max seconds between dumps = " + maxSecondsBetweenDumps);
+		LOGGER.warn("Namenode URI = " + rc.hdfsNnUri);
+		LOGGER.warn("Store Dir = " + hdfsStoreDir);
 
-		Configuration conf = new Configuration();
-		conf.addResource(ClassLoader.getSystemResourceAsStream("core-site.xml"));
-		CompressionCodecFactory ccf = new CompressionCodecFactory(conf);
-		codec = ccf.getCodecByClassName(ZstdCodec.class.getName());
-		createNewWriter( );	
+		fs = MultiWarcHdfsStore.get(rc.hdfsNnUri);
+		if (fs != null)
+			createNewWriter();
 	}
+
 	private String generateStoreName(Date d) {
 		SimpleDateFormat ft = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss.SSS");
         String datetime = ft.format(d);
@@ -101,16 +138,16 @@ public class MultiWarcStore implements Closeable, Store {
 
 	private void createNewWriter() throws IOException {
 		Date now = new Date();
-		final File warcFile = new File( storeDir, "."+generateStoreName(now) );
-		final File urlFile = new File( storeDir, "."+generateUrlName(now) );
 
-		warcOutputStream = new FastBufferedOutputStream( codec.createOutputStream(new FileOutputStream( warcFile )), OUTPUT_STREAM_BUFFER_SIZE);
+		final File warcFile = new File(hdfsStoreDir, generateStoreName(now));
+		final File urlFile = new File(hdfsStoreDir, generateUrlName(now));
+
+		warcOutputStream = fs.create(new org.apache.hadoop.fs.Path(warcFile.getAbsolutePath()), true, OUTPUT_STREAM_BUFFER_SIZE);
 		warcWriter = new UncompressedWarcWriter(warcOutputStream);
-		urlOutputStream = new FastBufferedOutputStream( new GZIPOutputStream(new FileOutputStream( urlFile )), OUTPUT_STREAM_BUFFER_SIZE );
+		urlOutputStream = fs.create(new org.apache.hadoop.fs.Path(urlFile.getAbsolutePath()), true, OUTPUT_STREAM_BUFFER_SIZE);
 		urlWriter = new BufferedWriter(new OutputStreamWriter(urlOutputStream, "UTF-8"));
 	}
 
-	@Override
 	public void store(final URI uri, final HttpResponse response, final boolean isDuplicate, final byte[] contentDigest,
 					  final String guessedCharset, final String guessedLanguage, final Map<String,String> extraHeaders,
 					  final StringBuilder textContent) throws IOException, InterruptedException {
@@ -154,13 +191,9 @@ public class MultiWarcStore implements Closeable, Store {
 		}
 		warcOutputStream.close();
 		urlOutputStream.close();
-		Files.move(Paths.get(storeDir.getAbsolutePath(), "."+currentStoreBaseName),
-				Paths.get(storeDir.getAbsolutePath(), currentStoreBaseName));
-		Files.move(Paths.get(storeDir.getAbsolutePath(), "."+currentUrlBaseName),
-				Paths.get(storeDir.getAbsolutePath(), currentUrlBaseName));
+		fs.close();
 	}
 
-	@Override
 	public synchronized void close() throws IOException {
 		realClose();
 	}
