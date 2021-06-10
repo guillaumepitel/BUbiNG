@@ -125,7 +125,7 @@ public class FetchData implements URIResponse, Closeable {
 		@Override
 		public void failed(Exception ex) {
 			common();
-			fetchData.exception = ex instanceof ClosedChannelException && fetchData.truncated ? null : ex;
+			fetchData.exception = ex instanceof ClosedChannelException && fetchData.isTruncated ? null : ex;
 			results.add(fetchData);
 		}
 
@@ -150,7 +150,7 @@ public class FetchData implements URIResponse, Closeable {
 	protected volatile HttpResponse response;
 
 	/** True if the last fetch was truncated because of exceedingly long response body. */
-	protected volatile boolean truncated;
+	protected volatile boolean isTruncated;
 
 	/** {@link System#currentTimeMillis()} when the GET request was issued. */
 	public volatile long startTime;
@@ -165,7 +165,7 @@ public class FetchData implements URIResponse, Closeable {
 	public volatile Throwable exception;
 
 	/** Whether we are fecthing a robots file. */
-	public boolean robots;
+	public boolean isRobots;
 
 	/** The wrapped entity used to replace with an {@link InspectableFileCachedInputStream} the content. */
 	private final InspectableCachedHttpEntity wrappedEntity;
@@ -205,7 +205,7 @@ public class FetchData implements URIResponse, Closeable {
 
 	public volatile String eTag;
 
-	public volatile Map<String,String> extraMap;
+	public final Map<String,String> extraMap;
 
 	/** Creates a fetched response according to the given properties.
 	 *
@@ -296,6 +296,27 @@ public class FetchData implements URIResponse, Closeable {
 		return this.response;
 	}
 
+	private void clear() {
+		// FIXME: ALERT: check that all fields are cleared.
+		this.url = null;
+		this.crawlRequest = null;
+		this.visitState = null;
+		this.response = null;
+		this.isTruncated = false;
+		this.startTime = 0;
+		this.firstByteTime = 0;
+		this.endTime = 0;
+		this.exception = null;
+		this.isRobots = false;
+		this.isDuplicate = false;
+		this.httpClientContext = null;
+		this.lang = 0;
+		this.eTag = null;
+
+		this.extraMap.clear();
+		//this.wrappedEntity.clear(); // FIXME: this is actually done by doFetch() or doFakeFetch()
+	}
+
 	/** Fetches a given URL.
 	 *
 	 * @param httpClient the client that will be used to fetch {@code url}.
@@ -303,17 +324,11 @@ public class FetchData implements URIResponse, Closeable {
 	 * @param visitState the {@link VisitState} associated with {@code url}.
 	 */
 	public void fetch(final URI url, final MsgFrontier.CrawlRequest crawlRequest, final HttpClient httpClient, final RequestConfig requestConfig, final VisitState visitState, final boolean robots) {
-		// ALERT: check that all fields are cleared.
+		clear();
 		this.url = url;
 		this.crawlRequest = crawlRequest;
     this.visitState = visitState;
-		this.response = null;
-		this.exception = null;
-		this.truncated = false;
-		this.isDuplicate = false;
-		this.extraMap.clear();
-		this.robots = robots;
-		this.lang = 0;
+		this.isRobots = robots;
 
 		assert url.getHost() != null : url;
 
@@ -329,7 +344,7 @@ public class FetchData implements URIResponse, Closeable {
     try {
       wrappedEntity.clear(); // Reset backing file.
       final String content;
-      if (robots)
+      if ( isRobots )
         content = "\n";
       else {
         CharSequence[] successors = GRAPH_SERVER.successors(url.toString());
@@ -396,9 +411,9 @@ public class FetchData implements URIResponse, Closeable {
             LOGGER.warn( "Null entity for URL " + url );
           else {
             wrappedEntity.setEntity(entity);
-            truncated = wrappedEntity.copyContent(rc.responseBodyMaxByteSize, startTime, rc.maximumFetchDuration, rc.minimumDownloadSpeed, rc.maximumTimeToFirstByte, mutableFirstByteTime);
+            isTruncated = wrappedEntity.copyContent(rc.responseBodyMaxByteSize, startTime, rc.maximumFetchDuration, rc.minimumDownloadSpeed, rc.maximumTimeToFirstByte, mutableFirstByteTime);
             firstByteTime = mutableFirstByteTime.longValue();
-            if (truncated)
+            if ( isTruncated )
               httpGet.abort();
           }
           return null;

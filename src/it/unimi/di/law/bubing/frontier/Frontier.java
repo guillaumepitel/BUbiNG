@@ -401,7 +401,7 @@ public class Frontier {
 			.setRedirectsEnabled(true)
 			.setRelativeRedirectsAllowed(true)
 			.setCircularRedirectsAllowed(true) // allow for cookie-based redirects
-			.setMaxRedirects(10) // 2xGoogle's policy
+			.setMaxRedirects(5) // Google's policy
 			.setContentCompressionEnabled(true)
 			.setProxy(rc.proxyHost.length() > 0 ? new HttpHost(rc.proxyHost, rc.proxyPort) : null)
 			.build();
@@ -416,8 +416,8 @@ public class Frontier {
 			.setCookieSpec(rc.cookiePolicy)
 			.setRedirectsEnabled(true)
 			.setRelativeRedirectsAllowed(true)
-			.setCircularRedirectsAllowed(true) // allow for cookie-based redirects
-			.setMaxRedirects(10) // 2xGoogle's policy
+			.setCircularRedirectsAllowed(false) // allow for cookie-based redirects
+			.setMaxRedirects(5) // Google's policy
 			.setProxy(rc.robotProxyHost.length() > 0 ? new HttpHost(rc.robotProxyHost, rc.robotProxyPort) : null)
 			.build();
 		LOGGER.info("Set robots request config to {}", robotsRequestConfig.toString());

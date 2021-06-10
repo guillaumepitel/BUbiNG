@@ -30,7 +30,8 @@ public class FetchInfoHelper {
                                                               final EnumFetchStatus.Enum fetchStatus ) {
     final MsgCrawler.FetchInfo.Builder fetchInfoBuilder = MsgCrawler.FetchInfo.newBuilder()
       .setUrlKey( crawlRequest.getUrlKey() )
-      .setFetchDate( ProtoHelper.getDayNow() )
+      .setFetchDateDeprecated( ProtoHelper.getDayNow() )
+      .setFetchTimeMinutes( ProtoHelper.getMinuteNow() )
       .setFetchStatus( fetchStatus );
     if ( visitState.workbenchEntry != null && visitState.workbenchEntry.ipAddress != null )
       fetchInfoBuilder.setIpAddress( ByteString.copyFrom(visitState.workbenchEntry.ipAddress) );

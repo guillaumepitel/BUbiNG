@@ -51,10 +51,11 @@
 		<dependency org="org.apache.httpcomponents"  name="httpcore" rev="latest.release"/>
 		<dependency org="org.apache.httpcomponents" name="httpclient" rev="latest.release"/>
 		<!-- <dependency org="org.apache.httpcomponents" name="httpasyncclient" rev="latest.release"/>-->
+    <!--dependency org="org.apache.hadoop" name="hadoop-common" rev="2.7.5"/-->
 		<dependency org="org.apache.hadoop" name="hadoop-common" rev="2.8.5"/>
 		<dependency org="org.apache.hadoop" name="hadoop-hdfs-client" rev="2.8.5"/>
-		<dependency org="com.exensa" name="wdl-proto" changing="true" rev="0.13-SNAPSHOT"/>
-		<dependency org="com.exensa" name="wdl-common" changing="true" rev="0.13-SNAPSHOT"/>
+		<dependency org="com.exensa" name="wdl-proto" changing="true" rev="0.17-dev-SNAPSHOT"/>
+		<dependency org="com.exensa" name="wdl-common" changing="true" rev="0.17-dev-SNAPSHOT"/>
 		<dependency org="com.kohlschutter.boilerpipe" name="boilerpipe-common" rev="2.0-java-11-SNAPSHOT"/>
 
 		<dependency org="org.cyclopsgroup" name="jmxterm" rev="1.0-alpha-4"/>
@@ -67,8 +68,8 @@
 
 		<dependency org="net.java.dev.javacc" name="javacc" rev="5.0" conf="compile"/>
 
-		<dependency org="com.google.protobuf" name="protobuf-java" rev="3.5.1"/>
-		<dependency org="org.apache.pulsar" name="pulsar-client" rev="2.5.2"/>
+		<dependency org="com.google.protobuf" name="protobuf-java" rev="3.11.4"/>
+		<dependency org="org.apache.pulsar" name="pulsar-client" rev="2.6.4"/>
 
 		<dependency org="org.apache.commons" name="commons-math" rev="latest.release" conf="test"/>
 		<dependency org="junit" name="junit" rev="latest.release" conf="test"/>

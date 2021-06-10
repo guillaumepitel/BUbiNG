@@ -8,10 +8,8 @@ import org.apache.pulsar.client.api.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.Random;
+import java.util.concurrent.*;
 
 public final class PulsarManager implements AutoCloseable
 {
@@ -284,9 +282,14 @@ public final class PulsarManager implements AutoCloseable
     }
 
     private String getConsumerName(final int topic) {
-      return String.format("%06d-%s",
-        ((rc.pulsarFrontierTopicNumber / rc.pulsarFrontierNodeNumber) * rc.pulsarFrontierNodeId + topic) % rc.pulsarFrontierTopicNumber,
-        rc.name);
+      // node X has consumerId ZERO for each topic such that
+      // topic % nodeNunber == X
+      // otherwise, the consumerId is 1 + random
+      boolean isMyDefaultTopic =  ( topic % rc.pulsarFrontierNodeNumber ) == rc.pulsarFrontierNodeId;
+      int consumerID = isMyDefaultTopic ? 0 :
+        ThreadLocalRandom.current().nextInt(1, rc.pulsarFrontierNodeNumber*rc.pulsarFrontierTopicNumber);
+
+      return String.format("%06d-%s", consumerID, rc.name);
     }
 
     private CompletableFuture<Consumer<byte[]>> requestConsumer(final PulsarClient client, final Frontier frontier,

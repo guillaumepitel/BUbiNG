@@ -139,7 +139,7 @@ public class ParsingThread extends Thread {
         .setContentLength( (int)fetchData.response().getEntity().getContentLength() )
         .setFetchDuration( (int)(fetchData.endTime - fetchData.startTime) )
         .setFetchTimeToFirstByte((int)(fetchData.firstByteTime - fetchData.startTime))
-        .setFetchDate( (int)(fetchData.startTime / (24*60*60*1000)) )
+        .setFetchDateDeprecated( (int)(fetchData.startTime / (24*60*60*1000)) )
         .setFetchTimeMinutes( (int)(fetchData.startTime / (60*1000)))
         .setHttpStatus( fetchData.response().getStatusLine().getStatusCode() )
         .setLanguage( fetchData.lang )
@@ -219,7 +219,7 @@ public class ParsingThread extends Thread {
     private static URI resolve( final String href, final URI base ) {
       if ( href.length() == 0 || href.charAt(0) == '#' )
         return base;
-      final URI url = BURL.parseAndNormalize( href );
+      final URI url = BURL.parseAndCanonicalize( href );
       return url == null ? null : base.resolve( url );
     }
 
@@ -345,7 +345,7 @@ public class ParsingThread extends Thread {
     final VisitState visitState = fetchData.visitState;
     if (LOGGER.isTraceEnabled()) LOGGER.trace("Got fetched response for visit state " + visitState);
 
-    if ( fetchData.robots ) {
+    if ( fetchData.isRobots ) {
       frontier.parsingRobotsCount.incrementAndGet();
       if (frontier.robotsWarcParallelOutputStream != null)
         frontier.robotsWarcParallelOutputStream.get().write(new HttpResponseWarcRecord(fetchData.uri(), fetchData.response()));

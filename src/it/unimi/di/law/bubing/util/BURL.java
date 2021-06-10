@@ -27,7 +27,6 @@ import org.slf4j.LoggerFactory;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.net.URLEncoder;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.util.*;
@@ -98,7 +97,7 @@ public final class BURL {
 		return parse(new MutableString(spec));
 	}
 
-	public static URI parseAndNormalize(String spec) { return parseAndNormalize(new MutableString(spec), true);}
+	public static URI parseAndCanonicalize(String spec) { return parseAndCanonicalize(new MutableString(spec), true);}
 
 	/** Creates a new BUbiNG URL from a {@linkplain MutableString mutable string}
 	 * specification if possible, or returns {@code null} otherwise.
@@ -132,10 +131,10 @@ public final class BURL {
 	 */
 
 	public static URI parse(MutableString spec) {
-		return parseAndNormalize(spec, false);
+		return parseAndCanonicalize(spec, false);
 	}
 
-	public static URI parseAndNormalize(MutableString spec, boolean normalize) {
+	public static URI parseAndCanonicalize(MutableString spec, boolean canonicalize) {
 
 		if (DEBUG) LOGGER.debug("parse(" + spec + ")");
 		spec.loose().trim();
@@ -198,8 +197,8 @@ public final class BURL {
 
 
 			// Rebuild, discarding fragment, parsing again a purely ASCII string and renormalizing (convoluted, but it does work).
-			if (normalize)
-				return new URI(sanitizeAndRepack(scheme, uri.getRawUserInfo(), host, uri.getPort(), rawPath, normalizeQuery(uri.getRawQuery()))).normalize();
+			if (canonicalize)
+				return new URI(sanitizeAndRepack(scheme, uri.getRawUserInfo(), host, uri.getPort(), rawPath, canonicalizeQuery(uri.getRawQuery()))).normalize();
 			else
 				return new URI(sanitizeAndRepack(scheme, uri.getRawUserInfo(), host, uri.getPort(), rawPath, uri.getRawQuery())).normalize();
 		}
@@ -214,8 +213,14 @@ public final class BURL {
 
 	private static final List<String> blackListedParams;
 	static {
-		blackListedParams = Arrays.asList("PHPSESSID","jsessionid","osCsid","zenid","ncid","SID","sid",
+		blackListedParams = Arrays.asList(
+			// SESSION VARIABLES
+			// From OWASP : (jsessionid|aspsessionid|asp.net_sessionid|phpsession|phpsessid|weblogicsession|session_id|session-id|cfid|cftoken|cfsid|jservsession|jwsession
+			"PHPSESSID","jsessionid","osCsid","zenid","ncid","SID","sid","CFID","CFTOKEN",
+			"aspsessionid","asp.net_sessionid","phpsession","weblogicsession","session_id","session-id","cfsid","jservsession","jwsession",
+			// REFERRER VARIABLES
 			"referrerPage",
+			// TRACKING VARIABLES
 			"campaign_id","campaign",
 			"affiliation","affiliate",
 			"utm_campaign","utm_source","utm_medium","utm_term","utm_content",
@@ -223,41 +228,55 @@ public final class BURL {
 			"pk_campaign","pk_kwd","pk_keyword");
 	}
 
-	private static final Pattern normalizeQueryPattern;
-	private static final Pattern normalizeQueryPattern2;
-	private static final Pattern normalizeQueryPattern3;
+	private static final Pattern canonicalizeQueryPattern;
+	private static final Pattern canonicalizeQueryPattern2;
+	private static final Pattern canonicalizeQueryPattern3;
 
 	static {
-		normalizeQueryPattern2 = Pattern.compile("(^[;&]*|[;&]*$)");
-		normalizeQueryPattern3 = Pattern.compile("([;&])[;&]*");
-		StringBuilder normalizeQueryPatternStringBuilder = new StringBuilder();
-		normalizeQueryPatternStringBuilder.append("(?<=^|[&;])(");
+		canonicalizeQueryPattern2 = Pattern.compile("(^[;&]*|[;&]*$)");
+		canonicalizeQueryPattern3 = Pattern.compile("([;&])[;&]*");
+		var canonicalizeQueryPatternStringBuilder = new StringBuilder();
+		canonicalizeQueryPatternStringBuilder.append("(?<=^|[&;])(");
 		boolean first = true;
 		for (String param : blackListedParams) {
 			if (!first)
-				normalizeQueryPatternStringBuilder.append("|");
+				canonicalizeQueryPatternStringBuilder.append("|");
 			first = false;
-			normalizeQueryPatternStringBuilder.append(param);
+			canonicalizeQueryPatternStringBuilder.append(param);
 		}
-		normalizeQueryPatternStringBuilder.append(")=[^;&]*(?=[;&]|$)");
-		normalizeQueryPattern = Pattern.compile(normalizeQueryPatternStringBuilder.toString());
+		canonicalizeQueryPatternStringBuilder.append(")=[^;&]*(?=[;&]|$)");
+		canonicalizeQueryPattern = Pattern.compile(canonicalizeQueryPatternStringBuilder.toString(),Pattern.CASE_INSENSITIVE);
 	}
 
-  public static String normalizeQuery(String query) {
+	/**
+	 * Canonicalize Query by removing query parameters that are known to have no effect on content
+	 * and may create false duplicate content : SESSION PARAMETERS, TRACKING PARAMETERS, etc.
+	 * @param query
+	 * @return canonicalized query
+	 */
+  public static String canonicalizeQuery(String query) {
 		if (query == null)
 			return null;
 		if (query.length() == 0)
 			return query;
 
-		String result1 = normalizeQueryPattern.matcher(query).replaceAll("");
-		String result2 = normalizeQueryPattern2.matcher(result1).replaceAll("");
-		String result = normalizeQueryPattern3.matcher(result2).replaceAll("$1");
+		String result1 = canonicalizeQueryPattern.matcher(query).replaceAll("");
+		String result2 = canonicalizeQueryPattern2.matcher(result1).replaceAll("");
+		String result = canonicalizeQueryPattern3.matcher(result2).replaceAll("$1");
 
 
 		if (LOGGER.isTraceEnabled())
 			if (query.length() != result.length())
-				LOGGER.trace("Normalized {} to {}", query,result);
+				LOGGER.trace("Canonicalized {} to {}", query,result);
 		return result;
+	}
+
+	public static boolean isCanonicalQuery(byte[] query) {
+		return isCanonicalQuery(Util.toString(query));
+  }
+
+	public static boolean isCanonicalQuery(String query) {
+  	return canonicalizeQuery(query).equals(query);
 	}
 
 	/** If the argument string does not contain non-ASCII characters, returns the string itself;
@@ -573,5 +592,35 @@ public final class BURL {
 	public static int memoryUsageOf(final byte[] array) {
 		return ((16 + array.length + 7) & -1 << 3) + // Obtained by Classmexer on a 64-bit Sun JVM for Intel.
 				8; // This accounts for the space used by the FIFO queue.
+	}
+
+	public static void main(String[] args) {
+		// Tests for canonicalization
+		if (args.length > 0) {
+			for (var arg : args) {
+				System.out.print(arg + " -> ");
+				System.out.print(BURL.parse(arg).toString() + " -> ");
+				System.out.println(BURL.parseAndCanonicalize(arg).toString());
+			}
+		} else {
+			var origin = Arrays.asList(
+				"http://test.com/t?a=b;c=jsessionid",
+				"http://test.com/t?&a=b&PHPSESSID=0abc234def010101&",
+				"http://test.com/t?&a=b&PHPSESSID",
+				"http://test.com/t?utm_source=abc&utm_medium=web&utm_campaign=email&toto=1"
+
+			);
+			var expected = Arrays.asList(
+				"http://test.com/t?a=b;c=jsessionid",
+				"http://test.com/t?a=b",
+				"http://test.com/t?a=b&PHPSESSID",
+				"http://test.com/t?toto=1"
+
+			);
+			for (int i = 0; i < origin.size(); i++) {
+				if (!BURL.parseAndCanonicalize(origin.get(i)).toString().equals(expected.get(i)))
+					System.out.println("Error : " + origin.get(i) + " -> " + BURL.parseAndCanonicalize(origin.get(i)).toString());
+			}
+		}
 	}
 }
