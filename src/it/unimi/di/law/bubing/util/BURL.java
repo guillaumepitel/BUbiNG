@@ -327,7 +327,7 @@ public final class BURL {
 			if (port != -1) sb.append(':').append(port);
 		}
 		if (path != null) sb.append(sanitize(path));
-		if (query != null) sb.append('?').append(sanitize(query));
+		if (query != null && query.length() > 0) sb.append('?').append(sanitize(query));
 		return sb.toString();
 	}
 
@@ -607,14 +607,17 @@ public final class BURL {
 				"http://test.com/t?a=b;c=jsessionid",
 				"http://test.com/t?&a=b&PHPSESSID=0abc234def010101&",
 				"http://test.com/t?&a=b&PHPSESSID",
-				"http://test.com/t?utm_source=abc&utm_medium=web&utm_campaign=email&toto=1"
+				"http://test.com/t?utm_source=abc&utm_medium=web&utm_campaign=email&toto=1",
+				"http://test.com/t?utm_source=abc&utm_medium=web&utm_campaign=email" // the trailing '?' should not be there
 
-			);
+
+				);
 			var expected = Arrays.asList(
 				"http://test.com/t?a=b;c=jsessionid",
 				"http://test.com/t?a=b",
 				"http://test.com/t?a=b&PHPSESSID",
-				"http://test.com/t?toto=1"
+				"http://test.com/t?toto=1",
+				"http://test.com/t"
 
 			);
 			for (int i = 0; i < origin.size(); i++) {
